@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Instrument_Serif, Inter } from "next/font/google";
 import "@/app/globals.css";
+import { SessionsProvider } from "@/lib/sessions-context";
 
 const serif = Instrument_Serif({
   subsets: ["latin"],
@@ -22,10 +23,12 @@ export default function RootLayout({
   children
 }: Readonly<{
   children: React.ReactNode;
-}>): JSX.Element {
+}>): React.JSX.Element {
   return (
-    <html lang="en">
-      <body className={`${serif.variable} ${inter.variable}`}>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${serif.variable} ${inter.variable}`} suppressHydrationWarning>
+        <SessionsProvider>{children}</SessionsProvider>
+      </body>
     </html>
   );
 }
