@@ -252,6 +252,57 @@
   font-size: 0.88rem;
 }
 
+.toggleCard {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toggleCopy {
+  display: grid;
+  gap: 4px;
+}
+
+.toggleTitle,
+.toggleDescription {
+  margin: 0;
+}
+
+.toggleTitle {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: rgba(242, 242, 242, 0.94);
+}
+
+.toggleDescription {
+  color: rgba(220, 220, 220, 0.68);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.toggleControl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(236, 236, 236, 0.88);
+  white-space: nowrap;
+}
+
+.toggleControl input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--cyan);
+}
+
 .stepHint {
   margin: 0;
   color: rgba(220, 220, 220, 0.66);
@@ -391,5 +442,10 @@
 
   .judgeRow {
     grid-template-columns: 1fr;
+  }
+
+  .toggleCard {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

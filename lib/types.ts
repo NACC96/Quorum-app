@@ -1,9 +1,10 @@
-export type RoundType = "independent" | "deliberation" | "judgment";
+export type RoundType = "independent" | "summary" | "deliberation" | "judgment";
 export type SessionStatus = "draft" | "running" | "complete" | "error";
 export type RoundStatus = "pending" | "running" | "complete" | "error";
 export type ResponseStatus = "pending" | "complete" | "error";
 export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 export type CostSource = "provider" | "calculated" | "unavailable";
+export type SummarySourceRoundType = "independent" | "deliberation";
 
 export interface UsageMetrics {
   promptTokens?: number;
@@ -52,6 +53,10 @@ export interface Round {
   type: RoundType;
   status: RoundStatus;
   responses: ModelResponse[];
+  deliberationIndex?: number;
+  summarySourceRoundId?: string;
+  summarySourceRoundType?: SummarySourceRoundType;
+  summarySourceDeliberationIndex?: number;
   startedAt: string;
   completedAt?: string;
 }
@@ -60,6 +65,8 @@ export interface SessionSettings {
   selectedModelIds: string[];
   judgeModelId: string;
   deliberationRounds: number;
+  summaryEnabled: boolean;
+  summaryModelId?: string;
   reasoningEffortMap?: Record<string, ReasoningEffort>;
   judgeReasoningEffort?: ReasoningEffort;
 }
@@ -96,6 +103,8 @@ export interface DraftState {
   judgeModelId: string;
   judgeReasoningEffort: ReasoningEffort;
   deliberationRounds: number;
+  summaryEnabled: boolean;
+  summaryModelId: string;
 }
 
 export interface RoundOutcome {

@@ -8,13 +8,20 @@ import {
   Round,
   RoundOutcome,
   RoundType,
+  SummarySourceRoundType,
   Session
 } from "@/lib/types";
-import { getModelById, getModelsByIds } from "@/lib/models";
+import {
+  DEFAULT_REASONING_EFFORT,
+  DEFAULT_SUMMARY_MODEL,
+  getModelById,
+  getModelsByIds
+} from "@/lib/models";
 import {
   buildDeliberationPrompt,
   buildIndependentPrompt,
-  buildJudgmentPrompt
+  buildJudgmentPrompt,
+  buildSummaryPrompt
 } from "@/lib/prompts";
 
 class ModelRequestError extends Error {
@@ -99,12 +106,28 @@ export function createId(): string {
   return `id-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-export function createRound(roundNumber: number, type: RoundType, models: ModelOption[]): Round {
+interface RoundCreationOptions {
+  deliberationIndex?: number;
+  summarySourceRoundId?: string;
+  summarySourceRoundType?: SummarySourceRoundType;
+  summarySourceDeliberationIndex?: number;
+}
+
+export function createRound(
+  roundNumber: number,
+  type: RoundType,
+  models: ModelOption[],
+  options: RoundCreationOptions = {}
+): Round {
   return {
     id: createId(),
     roundNumber,
     type,
     status: "running",
+    deliberationIndex: options.deliberationIndex,
+    summarySourceRoundId: options.summarySourceRoundId,
+    summarySourceRoundType: options.summarySourceRoundType,
+    summarySourceDeliberationIndex: options.summarySourceDeliberationIndex,
     startedAt: new Date().toISOString(),
     responses: models.map((model) => ({
       id: `${roundNumber}-${model.id}`,
@@ -316,22 +339,133 @@ async function runParticipantRound(
   return nextSession;
 }
 
-async function runJudgmentRound(
+const SUMMARY_FAILURE_MESSAGE = "Summary generation failed. Retry this summary round to continue.";
+
+function getNextRoundNumber(session: Session): number {
+  return session.rounds.length + 1;
+}
+
+function getSummaryModel(session: Session): ModelOption | undefined {
+  return getModelById(session.settings.summaryModelId ?? DEFAULT_SUMMARY_MODEL);
+}
+
+function isSummaryEnabled(session: Session): boolean {
+  return Boolean(session.settings.summaryEnabled);
+}
+
+function isRoundFailed(round: Round | undefined): boolean {
+  return Boolean(round?.responses.some((response) => response.status === "error"));
+}
+
+function getJudgmentSourceRounds(session: Session, judgmentRoundId?: string): Round[] {
+  return session.rounds.filter((round) => {
+    if (round.id === judgmentRoundId) {
+      return false;
+    }
+
+    if (isSummaryEnabled(session)) {
+      return round.type === "summary";
+    }
+
+    return round.type === "independent" || round.type === "deliberation";
+  });
+}
+
+function appendRoundToSession(
+  session: Session,
+  round: Round,
+  persistFull: (session: Session) => void,
+  onRoundActivated?: (roundId: string) => void
+): Session {
+  const nextSession = {
+    ...session,
+    rounds: [...session.rounds, round],
+    updatedAt: new Date().toISOString()
+  };
+
+  persistFull(nextSession);
+  onRoundActivated?.(round.id);
+  return nextSession;
+}
+
+async function runSummaryRound(
   workingSession: Session,
   round: Round,
-  judge: ModelOption,
+  summaryModel: ModelOption,
+  sourceRound: Round,
   persistFull: (session: Session) => void
 ): Promise<Session> {
   let nextSession = patchRound(workingSession, round.id, { status: "running" });
   persistFull(nextSession);
 
   const started = Date.now();
-  const prompt = buildJudgmentPrompt(
-    nextSession.question,
-    nextSession.context,
-    judge,
-    nextSession.rounds.filter((item) => item.id !== round.id)
-  );
+  const prompt = buildSummaryPrompt(nextSession.question, nextSession.context, sourceRound);
+  const inputMessages: ModelInputMessage[] = [
+    { role: "system", content: prompt.system },
+    { role: "user", content: prompt.user }
+  ];
+
+  try {
+    const result = await callModelForRound(
+      nextSession.id,
+      round.id,
+      summaryModel.id,
+      (signal) => callModel(
+        summaryModel.id,
+        inputMessages,
+        0.7,
+        65536,
+        DEFAULT_REASONING_EFFORT,
+        signal
+      )
+    );
+
+    const latencyMs = Date.now() - started;
+    nextSession = patchRoundResponse(nextSession, round.id, summaryModel.id, {
+      status: "complete",
+      content: result.content,
+      tokenCount: result.usage.totalTokens,
+      promptTokens: result.usage.promptTokens,
+      completionTokens: result.usage.completionTokens,
+      costUsd: result.usage.costUsd,
+      costSource: result.usage.costSource,
+      latencyMs,
+      inputMessages
+    });
+  } catch (error) {
+    const latencyMs = Date.now() - started;
+    const requestError = toModelRequestError(error);
+    nextSession = patchRoundResponse(nextSession, round.id, summaryModel.id, {
+      status: "error",
+      error: requestError.message,
+      errorReason: requestError.reason,
+      errorRequestId: requestError.requestId,
+      latencyMs,
+      inputMessages
+    });
+  }
+
+  nextSession = patchRound(nextSession, round.id, {
+    status: "complete",
+    completedAt: new Date().toISOString()
+  });
+  persistFull(nextSession);
+
+  return nextSession;
+}
+
+async function runJudgmentRound(
+  workingSession: Session,
+  round: Round,
+  judge: ModelOption,
+  sourceRounds: Round[],
+  persistFull: (session: Session) => void
+): Promise<Session> {
+  let nextSession = patchRound(workingSession, round.id, { status: "running" });
+  persistFull(nextSession);
+
+  const started = Date.now();
+  const prompt = buildJudgmentPrompt(nextSession.question, nextSession.context, judge, sourceRounds);
   const inputMessages: ModelInputMessage[] = [
     { role: "system", content: prompt.system },
     { role: "user", content: prompt.user }
@@ -386,7 +520,126 @@ async function runJudgmentRound(
   return nextSession;
 }
 
-export async function executeCouncilSession(
+async function appendIndependentRound(
+  workingSession: Session,
+  councilModels: ModelOption[],
+  persistFull: (session: Session) => void,
+  persistPatch: (patcher: (session: Session) => Session) => void,
+  onRoundActivated?: (roundId: string) => void
+): Promise<Session> {
+  const independentRound = createRound(getNextRoundNumber(workingSession), "independent", councilModels);
+  const nextSession = appendRoundToSession(workingSession, independentRound, persistFull, onRoundActivated);
+
+  return runParticipantRound(
+    nextSession,
+    independentRound,
+    councilModels,
+    (model) => buildIndependentPrompt(nextSession.question, nextSession.context, model),
+    persistFull,
+    persistPatch
+  );
+}
+
+async function appendDeliberationRound(
+  workingSession: Session,
+  councilModels: ModelOption[],
+  priorRound: Round,
+  deliberationIndex: number,
+  persistFull: (session: Session) => void,
+  persistPatch: (patcher: (session: Session) => Session) => void,
+  onRoundActivated?: (roundId: string) => void
+): Promise<Session> {
+  const deliberationRound = createRound(
+    getNextRoundNumber(workingSession),
+    "deliberation",
+    councilModels,
+    { deliberationIndex }
+  );
+  const nextSession = appendRoundToSession(workingSession, deliberationRound, persistFull, onRoundActivated);
+
+  return runParticipantRound(
+    nextSession,
+    deliberationRound,
+    councilModels,
+    (model) =>
+      buildDeliberationPrompt(
+        nextSession.question,
+        nextSession.context,
+        model,
+        priorRound,
+        deliberationIndex
+      ),
+    persistFull,
+    persistPatch
+  );
+}
+
+async function appendSummaryRound(
+  workingSession: Session,
+  summaryModel: ModelOption,
+  sourceRound: Round,
+  persistFull: (session: Session) => void,
+  onRoundActivated?: (roundId: string) => void
+): Promise<Session> {
+  const summaryRound = createRound(
+    getNextRoundNumber(workingSession),
+    "summary",
+    [summaryModel],
+    {
+      summarySourceRoundId: sourceRound.id,
+      summarySourceRoundType: sourceRound.type === "deliberation" ? "deliberation" : "independent",
+      summarySourceDeliberationIndex: sourceRound.type === "deliberation" ? sourceRound.deliberationIndex : undefined
+    }
+  );
+  const nextSession = appendRoundToSession(workingSession, summaryRound, persistFull, onRoundActivated);
+
+  return runSummaryRound(nextSession, summaryRound, summaryModel, sourceRound, persistFull);
+}
+
+async function appendJudgmentRound(
+  workingSession: Session,
+  judge: ModelOption,
+  persistFull: (session: Session) => void,
+  onRoundActivated?: (roundId: string) => void
+): Promise<Session> {
+  const judgmentRound = createRound(getNextRoundNumber(workingSession), "judgment", [judge]);
+  const nextSession = appendRoundToSession(workingSession, judgmentRound, persistFull, onRoundActivated);
+
+  return runJudgmentRound(
+    nextSession,
+    judgmentRound,
+    judge,
+    getJudgmentSourceRounds(nextSession, judgmentRound.id),
+    persistFull
+  );
+}
+
+function finalizeCompletedSession(
+  session: Session,
+  persistFull: (session: Session) => void,
+  persistPatch: (patcher: (session: Session) => Session) => void
+): Session {
+  const nextSession = {
+    ...session,
+    status: "complete" as const,
+    updatedAt: new Date().toISOString()
+  };
+  persistFull(nextSession);
+
+  if (!nextSession.title) {
+    generateSessionTitle(nextSession.question, nextSession.context).then((title) => {
+      if (title) {
+        persistPatch((s) => ({ ...s, title, updatedAt: new Date().toISOString() }));
+      }
+    }).catch(() => {
+      // Silent failure — sidebar falls back to showing the question
+    });
+  }
+
+  return nextSession;
+}
+
+async function continueCouncilSession(
   initialSession: Session,
   persistFull: (session: Session) => void,
   persistPatch: (patcher: (session: Session) => Session) => void,
@@ -394,108 +647,160 @@ export async function executeCouncilSession(
 ): Promise<Session> {
   const councilModels = getModelsByIds(initialSession.settings.selectedModelIds);
   const judge = getModelById(initialSession.settings.judgeModelId);
+  const summaryEnabled = isSummaryEnabled(initialSession);
+  const summaryModel = summaryEnabled ? getSummaryModel(initialSession) : undefined;
 
   if (!judge) {
     throw new Error("Judge model is invalid.");
   }
 
-  let workingSession = initialSession;
-
-  // Independent round
-  const independentRound = createRound(1, "independent", councilModels);
-  workingSession = {
-    ...workingSession,
-    rounds: [...workingSession.rounds, independentRound],
-    updatedAt: new Date().toISOString()
-  };
-  persistFull(workingSession);
-  onRoundActivated?.(independentRound.id);
-
-  workingSession = await runParticipantRound(
-    workingSession,
-    independentRound,
-    councilModels,
-    (model) => buildIndependentPrompt(workingSession.question, workingSession.context, model),
-    persistFull,
-    persistPatch
-  );
-
-  // Deliberation rounds
-  for (let i = 1; i <= initialSession.settings.deliberationRounds; i += 1) {
-    const priorRound = workingSession.rounds[workingSession.rounds.length - 1];
-    const deliberationRound = createRound(i + 1, "deliberation", councilModels);
-
-    workingSession = {
-      ...workingSession,
-      rounds: [...workingSession.rounds, deliberationRound],
-      updatedAt: new Date().toISOString()
-    };
-    persistFull(workingSession);
-    onRoundActivated?.(deliberationRound.id);
-
-    workingSession = await runParticipantRound(
-      workingSession,
-      deliberationRound,
-      councilModels,
-      (model) =>
-        buildDeliberationPrompt(
-          workingSession.question,
-          workingSession.context,
-          model,
-          priorRound,
-          i
-        ),
-      persistFull,
-      persistPatch
-    );
+  if (summaryEnabled && !summaryModel) {
+    throw new Error("Summary model is invalid.");
   }
 
-  // Judgment round
-  const judgmentRound = createRound(initialSession.settings.deliberationRounds + 2, "judgment", [judge]);
-  workingSession = {
-    ...workingSession,
-    rounds: [...workingSession.rounds, judgmentRound],
-    updatedAt: new Date().toISOString()
-  };
-  persistFull(workingSession);
-  onRoundActivated?.(judgmentRound.id);
+  let workingSession = initialSession;
 
-  workingSession = await runJudgmentRound(workingSession, judgmentRound, judge, persistFull);
+  while (true) {
+    const lastRound = workingSession.rounds[workingSession.rounds.length - 1];
 
-  // Mark complete
-  workingSession = {
-    ...workingSession,
-    status: "complete",
-    updatedAt: new Date().toISOString()
-  };
-  persistFull(workingSession);
-
-  // Generate title in background (non-blocking)
-  generateSessionTitle(workingSession.question, workingSession.context).then((title) => {
-    if (title) {
-      persistPatch((s) => ({ ...s, title, updatedAt: new Date().toISOString() }));
+    if (!lastRound) {
+      workingSession = await appendIndependentRound(
+        workingSession,
+        councilModels,
+        persistFull,
+        persistPatch,
+        onRoundActivated
+      );
+      continue;
     }
-  }).catch(() => {
-    // Silent failure — sidebar falls back to showing the question
-  });
 
-  return workingSession;
+    if (lastRound.type === "summary") {
+      if (isRoundFailed(lastRound)) {
+        throw new Error(SUMMARY_FAILURE_MESSAGE);
+      }
+
+      const nextDeliberationIndex =
+        lastRound.summarySourceRoundType === "independent"
+          ? 1
+          : (lastRound.summarySourceDeliberationIndex ?? 0) + 1;
+
+      if (nextDeliberationIndex <= initialSession.settings.deliberationRounds) {
+        workingSession = await appendDeliberationRound(
+          workingSession,
+          councilModels,
+          lastRound,
+          nextDeliberationIndex,
+          persistFull,
+          persistPatch,
+          onRoundActivated
+        );
+        continue;
+      }
+
+      workingSession = await appendJudgmentRound(workingSession, judge, persistFull, onRoundActivated);
+      return finalizeCompletedSession(workingSession, persistFull, persistPatch);
+    }
+
+    if (lastRound.type === "independent") {
+      if (summaryEnabled && summaryModel) {
+        workingSession = await appendSummaryRound(
+          workingSession,
+          summaryModel,
+          lastRound,
+          persistFull,
+          onRoundActivated
+        );
+        if (isRoundFailed(workingSession.rounds[workingSession.rounds.length - 1])) {
+          throw new Error(SUMMARY_FAILURE_MESSAGE);
+        }
+        continue;
+      }
+
+      if (initialSession.settings.deliberationRounds > 0) {
+        workingSession = await appendDeliberationRound(
+          workingSession,
+          councilModels,
+          lastRound,
+          1,
+          persistFull,
+          persistPatch,
+          onRoundActivated
+        );
+        continue;
+      }
+
+      workingSession = await appendJudgmentRound(workingSession, judge, persistFull, onRoundActivated);
+      return finalizeCompletedSession(workingSession, persistFull, persistPatch);
+    }
+
+    if (lastRound.type === "deliberation") {
+      if (summaryEnabled && summaryModel) {
+        workingSession = await appendSummaryRound(
+          workingSession,
+          summaryModel,
+          lastRound,
+          persistFull,
+          onRoundActivated
+        );
+        if (isRoundFailed(workingSession.rounds[workingSession.rounds.length - 1])) {
+          throw new Error(SUMMARY_FAILURE_MESSAGE);
+        }
+        continue;
+      }
+
+      const nextDeliberationIndex = (lastRound.deliberationIndex ?? 0) + 1;
+      if (nextDeliberationIndex <= initialSession.settings.deliberationRounds) {
+        workingSession = await appendDeliberationRound(
+          workingSession,
+          councilModels,
+          lastRound,
+          nextDeliberationIndex,
+          persistFull,
+          persistPatch,
+          onRoundActivated
+        );
+        continue;
+      }
+
+      workingSession = await appendJudgmentRound(workingSession, judge, persistFull, onRoundActivated);
+      return finalizeCompletedSession(workingSession, persistFull, persistPatch);
+    }
+
+    if (lastRound.type === "judgment") {
+      return finalizeCompletedSession(workingSession, persistFull, persistPatch);
+    }
+  }
+}
+
+export async function executeCouncilSession(
+  initialSession: Session,
+  persistFull: (session: Session) => void,
+  persistPatch: (patcher: (session: Session) => Session) => void,
+  onRoundActivated?: (roundId: string) => void
+): Promise<Session> {
+  return continueCouncilSession(initialSession, persistFull, persistPatch, onRoundActivated);
 }
 
 export async function retryFailedModelsForRound(
   session: Session,
   roundId: string,
   persistFull: (session: Session) => void,
-  persistPatch: (patcher: (session: Session) => Session) => void
+  persistPatch: (patcher: (session: Session) => Session) => void,
+  onRoundActivated?: (roundId: string) => void
 ): Promise<Session> {
-  const round = session.rounds.find((item) => item.id === roundId);
-  if (!round) {
+  const roundIndex = session.rounds.findIndex((item) => item.id === roundId);
+  if (roundIndex === -1) {
     throw new Error("Round not found.");
   }
 
+  const round = session.rounds[roundIndex];
   const failedResponses = round.responses.filter((response) => response.status === "error");
   if (failedResponses.length === 0) {
     return session;
+  }
+
+  if (isSummaryEnabled(session) && roundIndex !== session.rounds.length - 1) {
+    throw new Error("Only the latest failed round can be retried when summaries are enabled.");
   }
 
   let workingSession = session;
@@ -525,13 +830,38 @@ export async function retryFailedModelsForRound(
 
   const refreshedRound = workingSession.rounds.find((item) => item.id === round.id) ?? round;
 
+  if (round.type === "summary") {
+    const summaryModel = getSummaryModel(workingSession);
+    if (!summaryModel) {
+      throw new Error("Summary model is invalid.");
+    }
+
+    const sourceRound = workingSession.rounds.find((item) => item.id === round.summarySourceRoundId);
+    if (!sourceRound) {
+      throw new Error("Cannot retry summary round without its source round.");
+    }
+
+    workingSession = await runSummaryRound(workingSession, refreshedRound, summaryModel, sourceRound, persistFull);
+    if (isRoundFailed(workingSession.rounds.find((item) => item.id === round.id))) {
+      return workingSession;
+    }
+
+    return continueCouncilSession(workingSession, persistFull, persistPatch, onRoundActivated);
+  }
+
   if (round.type === "judgment") {
     const judge = getModelById(workingSession.settings.judgeModelId);
     if (!judge) {
       throw new Error("Judge model is invalid.");
     }
 
-    return runJudgmentRound(workingSession, refreshedRound, judge, persistFull);
+    return runJudgmentRound(
+      workingSession,
+      refreshedRound,
+      judge,
+      getJudgmentSourceRounds(workingSession, refreshedRound.id),
+      persistFull
+    );
   }
 
   const failedModelEntries = failedResponses.map((response) => ({
@@ -580,7 +910,7 @@ export async function retryFailedModelsForRound(
     );
   }
 
-  const priorRound = workingSession.rounds.find((item) => item.roundNumber === round.roundNumber - 1);
+  const priorRound = workingSession.rounds[roundIndex - 1];
   if (!priorRound) {
     throw new Error("Cannot retry deliberation round without prior round context.");
   }
@@ -595,7 +925,7 @@ export async function retryFailedModelsForRound(
         workingSession.context,
         model,
         priorRound,
-        round.roundNumber - 1
+        refreshedRound.deliberationIndex ?? 1
       ),
     persistFull,
     persistPatch

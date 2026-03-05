@@ -6,6 +6,7 @@ import {
   DEFAULT_COUNCIL,
   DEFAULT_JUDGE,
   DEFAULT_REASONING_EFFORT,
+  DEFAULT_SUMMARY_MODEL,
   MAX_COUNCIL_SIZE,
   MAX_DELIBERATION_ROUNDS,
   MIN_COUNCIL_SIZE,
@@ -17,6 +18,7 @@ import {
 import { DraftState, ReasoningEffort } from "@/lib/types";
 import { useSessionsContext } from "@/lib/sessions-context";
 import { createId } from "@/lib/council-engine";
+import { getEstimatedModelCallCount, getExpectedRoundCount } from "@/lib/format";
 import NavPill from "@/app/components/nav-pill";
 import Footer from "@/app/components/footer";
 import ModelPickerModal from "@/app/components/model-picker-modal";
@@ -59,7 +61,9 @@ const INITIAL_DRAFT: DraftState = {
   councilReasoningEfforts: {},
   judgeModelId: DEFAULT_JUDGE,
   judgeReasoningEffort: DEFAULT_REASONING_EFFORT,
-  deliberationRounds: 0
+  deliberationRounds: 0,
+  summaryEnabled: false,
+  summaryModelId: DEFAULT_SUMMARY_MODEL
 };
 
 function getStepIndex(step: SetupStepId): number {
@@ -103,7 +107,9 @@ export default function CouncilPageClient(): React.JSX.Element {
       councilReasoningEfforts: effortMap,
       judgeModelId: source.settings.judgeModelId,
       judgeReasoningEffort: source.settings.judgeReasoningEffort ?? DEFAULT_REASONING_EFFORT,
-      deliberationRounds: source.settings.deliberationRounds
+      deliberationRounds: source.settings.deliberationRounds,
+      summaryEnabled: source.settings.summaryEnabled ?? false,
+      summaryModelId: source.settings.summaryModelId ?? DEFAULT_SUMMARY_MODEL
     };
   }, [fromSessionId, getSession]);
 
@@ -121,14 +127,20 @@ export default function CouncilPageClient(): React.JSX.Element {
   }, [initialDraft]);
 
   const currentStepIndex = getStepIndex(currentStep);
-  const totalRoundsForDraft = draft.deliberationRounds + 2;
-  const estimatedModelCalls = draft.councilSize * (draft.deliberationRounds + 1) + 1;
+  const totalRoundsForDraft = getExpectedRoundCount(draft.deliberationRounds, draft.summaryEnabled);
+  const estimatedModelCalls = getEstimatedModelCallCount(
+    draft.councilSize,
+    draft.deliberationRounds,
+    draft.summaryEnabled
+  );
 
   const isPromptStepValid = draft.question.trim().length > 0;
   const isCouncilStepValid =
     draft.councilSlots.length >= MIN_COUNCIL_SIZE &&
     draft.councilSlots.every((slot) => slot !== null);
-  const isJudgeStepValid = Boolean(getModelById(draft.judgeModelId));
+  const isJudgeStepValid =
+    Boolean(getModelById(draft.judgeModelId)) &&
+    (!draft.summaryEnabled || Boolean(getModelById(draft.summaryModelId)));
   const canRun = isPromptStepValid && isCouncilStepValid && isJudgeStepValid;
 
   const assignedCouncilModels = draft.councilSlots.map((modelId, index) => ({
@@ -138,6 +150,7 @@ export default function CouncilPageClient(): React.JSX.Element {
   }));
 
   const judgeModel = getModelById(draft.judgeModelId);
+  const summaryModel = getModelById(draft.summaryModelId);
 
   const canProceedFromStep = (step: SetupStepId): boolean => {
     if (step === "prompt") {
@@ -165,7 +178,9 @@ export default function CouncilPageClient(): React.JSX.Element {
     }
 
     if (step === "judge") {
-      return "Select a valid judge model to continue.";
+      return draft.summaryEnabled
+        ? "Select valid judge and summary models to continue."
+        : "Select a valid judge model to continue.";
     }
 
     return "Resolve setup issues before convening council.";
@@ -300,6 +315,12 @@ export default function CouncilPageClient(): React.JSX.Element {
       return;
     }
 
+    if (draft.summaryEnabled && !summaryModel) {
+      goToStep("judge");
+      setErrorMessage("Summary model is invalid.");
+      return;
+    }
+
     const reasoningEffortMap: Record<string, ReasoningEffort> = {};
     for (let index = 0; index < selectedModelIds.length; index += 1) {
       reasoningEffortMap[selectedModelIds[index]] =
@@ -316,6 +337,8 @@ export default function CouncilPageClient(): React.JSX.Element {
         selectedModelIds,
         judgeModelId: draft.judgeModelId,
         deliberationRounds: draft.deliberationRounds,
+        summaryEnabled: draft.summaryEnabled,
+        summaryModelId: draft.summaryEnabled ? draft.summaryModelId : undefined,
         reasoningEffortMap,
         judgeReasoningEffort: draft.judgeReasoningEffort
       },
@@ -549,10 +572,66 @@ export default function CouncilPageClient(): React.JSX.Element {
                     />
                   </div>
 
+                  <div className={styles.toggleCard}>
+                    <div className={styles.toggleCopy}>
+                      <p className={styles.toggleTitle}>Inter-round summaries</p>
+                      <p className={styles.toggleDescription}>
+                        Insert a dedicated summarizer step after each participant round and use that
+                        summary as the next stage&apos;s handoff.
+                      </p>
+                    </div>
+
+                    <label className={styles.toggleControl}>
+                      <input
+                        type="checkbox"
+                        checked={draft.summaryEnabled}
+                        onChange={(event) =>
+                          setDraft((previous) => ({
+                            ...previous,
+                            summaryEnabled: event.target.checked
+                          }))
+                        }
+                      />
+                      <span>{draft.summaryEnabled ? "On" : "Off"}</span>
+                    </label>
+                  </div>
+
+                  {draft.summaryEnabled && (
+                    <div className={styles.fieldBlock}>
+                      <label className={styles.fieldLabel} htmlFor="summary-model-select">
+                        Summary Model
+                      </label>
+                      <select
+                        id="summary-model-select"
+                        value={draft.summaryModelId}
+                        onChange={(event) =>
+                          setDraft((previous) => ({
+                            ...previous,
+                            summaryModelId: event.target.value
+                          }))
+                        }
+                      >
+                        {MODEL_OPTIONS.map((model) => (
+                          <option key={model.id} value={model.id}>
+                            {model.name} ({model.provider})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <div className={styles.judgeSummary}>
                     <p>
                       Judge: <strong>{judgeModel?.name ?? draft.judgeModelId}</strong>
                     </p>
+                    <p>
+                      Summaries: <strong>{draft.summaryEnabled ? "On" : "Off"}</strong>
+                    </p>
+                    {draft.summaryEnabled && (
+                      <p>
+                        Summary model: <strong>{summaryModel?.name ?? draft.summaryModelId}</strong>
+                      </p>
+                    )}
                     <p>
                       Total rounds: <strong>{totalRoundsForDraft}</strong>
                     </p>
@@ -594,10 +673,21 @@ export default function CouncilPageClient(): React.JSX.Element {
                         Judge: <strong>{judgeModel?.name ?? draft.judgeModelId}</strong>
                       </p>
                       <p>
+                        Summaries: <strong>{draft.summaryEnabled ? "On" : "Off"}</strong>
+                      </p>
+                      {draft.summaryEnabled && (
+                        <p>
+                          Summary model: <strong>{summaryModel?.name ?? draft.summaryModelId}</strong>
+                        </p>
+                      )}
+                      <p>
                         Judge effort: <strong>{draft.judgeReasoningEffort}</strong>
                       </p>
                       <p>
                         Deliberation rounds: <strong>{draft.deliberationRounds}</strong>
+                      </p>
+                      <p>
+                        Total visible rounds: <strong>{totalRoundsForDraft}</strong>
                       </p>
                     </article>
                   </div>

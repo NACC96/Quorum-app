@@ -1,16 +1,28 @@
 import { Round, Session } from "@/lib/types";
 import { getModelById } from "@/lib/models";
 
+function getParticipantRoundCount(deliberationRounds: number): number {
+  return deliberationRounds + 1;
+}
+
 export function formatRoundLabel(round: Round): string {
   if (round.type === "independent") {
     return "Independent";
+  }
+
+  if (round.type === "summary") {
+    if (round.summarySourceRoundType === "deliberation") {
+      return `Summary after Deliberation ${round.summarySourceDeliberationIndex ?? "?"}`;
+    }
+
+    return "Summary after Independent";
   }
 
   if (round.type === "judgment") {
     return "Verdict";
   }
 
-  return `Deliberation ${round.roundNumber - 1}`;
+  return `Deliberation ${round.deliberationIndex ?? round.roundNumber - 1}`;
 }
 
 export function msToSeconds(ms: number): string {
@@ -28,6 +40,24 @@ export function formatUsd(value: number): string {
   }
 
   return `$${value.toFixed(4)}`;
+}
+
+export function getExpectedRoundCount(deliberationRounds: number, summaryEnabled: boolean): number {
+  const participantRoundCount = getParticipantRoundCount(deliberationRounds);
+  const summaryRoundCount = summaryEnabled ? participantRoundCount : 0;
+
+  return participantRoundCount + summaryRoundCount + 1;
+}
+
+export function getEstimatedModelCallCount(
+  councilSize: number,
+  deliberationRounds: number,
+  summaryEnabled: boolean
+): number {
+  const participantRoundCount = getParticipantRoundCount(deliberationRounds);
+  const summaryRoundCount = summaryEnabled ? participantRoundCount : 0;
+
+  return councilSize * participantRoundCount + summaryRoundCount + 1;
 }
 
 export function getSessionCostSummary(session: Session): {

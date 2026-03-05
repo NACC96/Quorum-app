@@ -136,6 +136,7 @@ export const DEFAULT_COUNCIL = [
 ];
 
 export const DEFAULT_JUDGE = "anthropic/claude-sonnet-4.6";
+export const DEFAULT_SUMMARY_MODEL = DEFAULT_JUDGE;
 
 export const REASONING_EFFORT_OPTIONS: { label: string; value: ReasoningEffort }[] = [
   { label: "None", value: "none" },

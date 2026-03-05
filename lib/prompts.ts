@@ -4,13 +4,43 @@ function renderContext(context: string): string {
   return context.trim() ? context.trim() : "No extra context provided.";
 }
 
+function getRoundTitle(round: Round): string {
+  if (round.type === "independent") {
+    return "Independent Round";
+  }
+
+  if (round.type === "summary") {
+    if (round.summarySourceRoundType === "deliberation") {
+      return `Summary after Deliberation ${round.summarySourceDeliberationIndex ?? "?"}`;
+    }
+
+    return "Summary after Independent";
+  }
+
+  if (round.type === "judgment") {
+    return "Judgment";
+  }
+
+  return `Deliberation Round ${round.deliberationIndex ?? round.roundNumber - 1}`;
+}
+
 function renderRoundTranscript(round: Round): string {
-  const roundTitle =
-    round.type === "independent"
-      ? "Independent Round"
-      : round.type === "judgment"
-        ? "Judgment"
-        : `Deliberation Round ${round.roundNumber - 1}`;
+  const roundTitle = getRoundTitle(round);
+
+  if (round.type === "summary") {
+    const summaryResponse = round.responses[0];
+    if (!summaryResponse) {
+      return `${roundTitle}\nNo summary response was available.`;
+    }
+
+    if (summaryResponse.status === "error") {
+      return `${roundTitle}\n- ${summaryResponse.modelName} (${summaryResponse.provider}): ERROR -> ${
+        summaryResponse.error ?? "Unknown error"
+      }`;
+    }
+
+    return `${roundTitle}\n${summaryResponse.content}`;
+  }
 
   const items = round.responses
     .map((response) => {
@@ -23,6 +53,26 @@ function renderRoundTranscript(round: Round): string {
     .join("\n\n");
 
   return `${roundTitle}\n${items}`;
+}
+
+function renderRoundResponsesForSummary(round: Round): string {
+  return round.responses
+    .map((response) => {
+      if (response.status === "error") {
+        return [
+          `## ${response.modelName} (${response.provider})`,
+          "Response status: unavailable",
+          `Error: ${response.error ?? "Unknown error"}`
+        ].join("\n");
+      }
+
+      return [
+        `## ${response.modelName} (${response.provider})`,
+        "Response status: complete",
+        response.content
+      ].join("\n\n");
+    })
+    .join("\n\n");
 }
 
 function renderOtherResponses(round: Round, currentModelId: string): string {
@@ -40,6 +90,31 @@ function renderOtherResponses(round: Round, currentModelId: string): string {
         `### ${response.modelName} (${response.provider})\n${response.content}`
     )
     .join("\n\n");
+}
+
+function renderPriorRoundInput(round: Round, currentModelId: string): {
+  label: string;
+  content: string;
+} {
+  if (round.type === "summary") {
+    const summaryResponse = round.responses[0];
+    if (!summaryResponse || summaryResponse.status !== "complete") {
+      return {
+        label: "Previous round summary:",
+        content: "No previous summary was available from the previous round."
+      };
+    }
+
+    return {
+      label: "Previous round summary:",
+      content: summaryResponse.content
+    };
+  }
+
+  return {
+    label: "Peer responses from previous round:",
+    content: renderOtherResponses(round, currentModelId)
+  };
 }
 
 export function buildIndependentPrompt(
@@ -69,6 +144,8 @@ export function buildDeliberationPrompt(
   priorRound: Round,
   deliberationIndex: number
 ): { system: string; user: string } {
+  const priorRoundInput = renderPriorRoundInput(priorRound, participant.id);
+
   return {
     system: [
       "You are a council participant in a structured AI deliberation.",
@@ -81,8 +158,33 @@ export function buildDeliberationPrompt(
       `Context:\n${renderContext(context)}`,
       `Current model: ${participant.name} (${participant.provider})`,
       `This is deliberation round ${deliberationIndex}.`,
-      "Peer responses from previous round:",
-      renderOtherResponses(priorRound, participant.id)
+      priorRoundInput.label,
+      priorRoundInput.content
+    ].join("\n\n")
+  };
+}
+
+export function buildSummaryPrompt(
+  question: string,
+  context: string,
+  sourceRound: Round
+): { system: string; user: string } {
+  return {
+    system: [
+      "You are the summarizer model in Quorum.",
+      "Summarize each participant response from the provided round into a detailed, faithful markdown digest.",
+      "For every source model, output exactly one `## Model Name (Provider)` section.",
+      "Inside each model section include `### Thesis`, `### Key Arguments`, `### Recommendation`, and `### Risks / Blind Spots`.",
+      "Target roughly 150-250 words total per source model.",
+      "If a source response failed or is unavailable, explicitly say the response was unavailable and do not invent content.",
+      "Return markdown only."
+    ].join(" "),
+    user: [
+      `Question:\n${question.trim()}`,
+      `Context:\n${renderContext(context)}`,
+      `Round to summarize:\n${getRoundTitle(sourceRound)}`,
+      "Source responses:",
+      renderRoundResponsesForSummary(sourceRound)
     ].join("\n\n")
   };
 }

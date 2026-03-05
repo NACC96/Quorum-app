@@ -12,6 +12,7 @@ import {
 import {
   formatRoundLabel,
   formatUsd,
+  getExpectedRoundCount,
   getSessionCostSummary,
   modelShortName,
   msToSeconds
@@ -36,6 +37,7 @@ export default function SessionPage(): React.JSX.Element {
   const executionStarted = useRef(false);
 
   const session = getSession(id);
+  const summaryEnabled = Boolean(session?.settings.summaryEnabled);
 
   const costSummary = useMemo(
     () => (session ? getSessionCostSummary(session) : null),
@@ -102,12 +104,31 @@ export default function SessionPage(): React.JSX.Element {
     [activeRound]
   );
 
+  const latestFailedRoundId = useMemo(() => {
+    if (!session) {
+      return null;
+    }
+
+    for (let index = session.rounds.length - 1; index >= 0; index -= 1) {
+      const round = session.rounds[index];
+      if (round.responses.some((response) => response.status === "error")) {
+        return round.id;
+      }
+    }
+
+    return null;
+  }, [session]);
+
+  const latestRoundId = session ? session.rounds[session.rounds.length - 1]?.id ?? null : null;
+
   const canRetryFailedModels =
     Boolean(activeRound) &&
     activeRound?.status === "complete" &&
     session?.status !== "running" &&
     activeRoundFailedCount > 0 &&
-    retryingRoundId === null;
+    retryingRoundId === null &&
+    (!summaryEnabled ||
+      (activeRound?.id === latestFailedRoundId && activeRound?.id === latestRoundId));
 
   const handleRetryFailedModels = async () => {
     if (!session || !activeRound || !canRetryFailedModels) {
@@ -122,7 +143,8 @@ export default function SessionPage(): React.JSX.Element {
         session,
         activeRound.id,
         (updated) => updateSession(updated),
-        (patcher) => patchSession(id, patcher)
+        (patcher) => patchSession(id, patcher),
+        (roundId) => setActiveRoundId(roundId)
       );
     } catch (error) {
       setErrorMessage(
@@ -235,7 +257,22 @@ export default function SessionPage(): React.JSX.Element {
                 </span>
                 <span>
                   <small>Rounds</small>
-                  <strong>{session.settings.deliberationRounds}</strong>
+                  <strong>
+                    {getExpectedRoundCount(
+                      session.settings.deliberationRounds,
+                      session.settings.summaryEnabled ?? false
+                    )}
+                  </strong>
+                </span>
+                <span>
+                  <small>Summaries</small>
+                  <strong>
+                    {session.settings.summaryEnabled
+                      ? session.settings.summaryModelId
+                        ? `On · ${modelShortName(session.settings.summaryModelId)}`
+                        : "On"
+                      : "Off"}
+                  </strong>
                 </span>
                 {costSummary && (
                   <span>
@@ -291,7 +328,11 @@ export default function SessionPage(): React.JSX.Element {
                         disabled={!canRetryFailedModels}
                       >
                         {retryingRoundId === activeRound.id
-                          ? "Retrying failed models..."
+                          ? activeRound.type === "summary"
+                            ? "Retrying summary round..."
+                            : "Retrying failed models..."
+                          : activeRound.type === "summary"
+                            ? "Retry summary round"
                           : `Retry failed models only (${activeRoundFailedCount})`}
                       </button>
                     </div>
@@ -300,11 +341,14 @@ export default function SessionPage(): React.JSX.Element {
                   {activeRound && (
                     <div
                       className={`${styles.responseGrid} ${
-                        activeRound.type === "judgment" ? styles.responseGridJudgment : ""
+                        activeRound.type === "judgment" || activeRound.type === "summary"
+                          ? styles.responseGridJudgment
+                          : ""
                       }`}
                     >
                       {activeRound.responses.map((response) => {
                         const isJudgment = activeRound.type === "judgment";
+                        const isSummaryRound = activeRound.type === "summary";
                         const preview =
                           response.content && response.content.length > 220
                             ? `${response.content.slice(0, 220)}...`
@@ -398,7 +442,7 @@ export default function SessionPage(): React.JSX.Element {
 
                             {response.status === "complete" && (
                               <div className={styles.responseBody}>
-                                {isJudgment ? (
+                                {isJudgment || isSummaryRound ? (
                                   <p className={styles.verdictPreview}>{preview}</p>
                                 ) : (
                                   <p className={styles.standardPreview}>
