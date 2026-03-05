@@ -1,0 +1,447 @@
+.workspaceGrid {
+  margin-top: 48px;
+  display: grid;
+  grid-template-columns: minmax(250px, 300px) 1fr;
+  gap: 20px;
+}
+
+.mainColumn {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.summaryCard,
+.roundPanel,
+.notFoundCard {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background: rgba(10, 10, 10, 0.72);
+  backdrop-filter: blur(16px);
+}
+
+.summaryCard {
+  padding: 16px;
+}
+
+.summaryHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.summaryHead h2 {
+  margin: 0;
+  font-family: var(--font-serif), "Instrument Serif", serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  font-size: clamp(1.4rem, 2.6vw, 2.1rem);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.rerunButton {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(139, 92, 246, 0.34);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.35), rgba(6, 182, 212, 0.22));
+  text-decoration: none;
+  color: #fff;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.summaryMeta {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.summaryMeta span {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.summaryMeta small {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(214, 214, 214, 0.64);
+}
+
+.summaryMeta strong {
+  font-size: 0.82rem;
+  line-height: 1.3;
+  color: rgba(242, 242, 242, 0.95);
+}
+
+.roundPanel {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.panelHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.panelHead h3 {
+  margin: 0;
+  font-family: var(--font-serif), "Instrument Serif", serif;
+  font-size: 1.35rem;
+  font-weight: 400;
+}
+
+.panelHead p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: rgba(220, 220, 220, 0.76);
+}
+
+.emptyRoundState {
+  min-height: 170px;
+  border-radius: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  display: grid;
+  place-items: center;
+  justify-items: center;
+  text-align: center;
+  gap: 10px;
+  color: rgba(227, 227, 227, 0.67);
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: rgba(6, 182, 212, 0.92);
+  animation: spin 0.9s linear infinite;
+}
+
+.roundTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.roundTab {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.roundTab small {
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(218, 218, 218, 0.64);
+}
+
+.roundTabActive {
+  border-color: rgba(139, 92, 246, 0.66);
+  box-shadow: 0 0 24px -12px rgba(139, 92, 246, 0.62);
+}
+
+.roundActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.retryButton {
+  border: 1px solid rgba(6, 182, 212, 0.45);
+  border-radius: 10px;
+  background: rgba(6, 182, 212, 0.12);
+  color: rgba(208, 248, 255, 0.92);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.retryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.responseGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.responseGridJudgment {
+  grid-template-columns: 1fr;
+}
+
+.responseCard {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.responseCardCompact {
+  min-height: 0;
+}
+
+.responseCardClickable {
+  cursor: pointer;
+}
+
+.responseCardClickable:hover {
+  border-color: rgba(139, 92, 246, 0.38);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.responseHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.responseModel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.responseDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.responseMetaRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.responseBadge {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.responseBadgePending {
+  background: rgba(251, 191, 36, 0.15);
+  color: rgba(251, 191, 36, 0.9);
+}
+
+.responseBadgeComplete {
+  background: rgba(52, 211, 153, 0.12);
+  color: rgba(52, 211, 153, 0.9);
+}
+
+.responseBadgeError {
+  background: rgba(248, 113, 113, 0.15);
+  color: rgba(248, 113, 113, 0.9);
+}
+
+.responseMetrics {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(218, 218, 218, 0.5);
+}
+
+.abortButton {
+  justify-self: flex-start;
+  border: 1px solid rgba(248, 113, 113, 0.55);
+  border-radius: 8px;
+  background: rgba(248, 113, 113, 0.12);
+  color: rgba(255, 219, 219, 0.95);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.responseLoading {
+  display: grid;
+  gap: 8px;
+}
+
+.skeletonLine {
+  border-radius: 999px;
+  height: 10px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.16),
+    rgba(255, 255, 255, 0.08)
+  );
+  background-size: 220% 100%;
+  animation: pulseLine 1.3s linear infinite;
+}
+
+.skeletonLine90 {
+  width: 90%;
+}
+
+.skeletonLine70 {
+  width: 70%;
+}
+
+.responseError {
+  margin: 0;
+  color: rgba(248, 113, 113, 0.95);
+  line-height: 1.55;
+}
+
+.responseErrorStack {
+  display: grid;
+  gap: 4px;
+}
+
+.responseErrorMeta {
+  margin: 0;
+  font-size: 0.72rem;
+  color: rgba(248, 189, 189, 0.9);
+  line-height: 1.45;
+}
+
+.responseErrorMeta code {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 0.7rem;
+}
+
+.responseBody {
+  line-height: 1.58;
+  color: rgba(239, 239, 239, 0.92);
+  font-size: 0.92rem;
+}
+
+.verdictPreview,
+.standardPreview {
+  margin: 0;
+}
+
+.verdictPreview {
+  color: rgba(239, 239, 239, 0.76);
+}
+
+.standardPreview {
+  color: rgba(220, 220, 220, 0.66);
+}
+
+.errorText {
+  margin: 0;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 12px;
+  background: rgba(248, 113, 113, 0.08);
+  color: rgba(254, 196, 196, 0.95);
+  padding: 10px 12px;
+}
+
+.notFoundCard {
+  margin: 64px auto 0;
+  max-width: 620px;
+  padding: 24px;
+  text-align: center;
+}
+
+.notFoundCard h2 {
+  margin: 0;
+  font-family: var(--font-serif), "Instrument Serif", serif;
+  font-size: 2rem;
+  font-weight: 400;
+}
+
+.notFoundCard p {
+  margin: 12px 0 0;
+  color: rgba(224, 224, 224, 0.72);
+}
+
+.launchLink {
+  margin-top: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(110deg, rgba(139, 92, 246, 0.92), rgba(6, 182, 212, 0.92));
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulseLine {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -30% 0;
+  }
+}
+
+@media (max-width: 1140px) {
+  .workspaceGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 980px) {
+  .summaryMeta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .responseGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryHead {
+    flex-direction: column;
+  }
+
+  .summaryMeta {
+    grid-template-columns: 1fr;
+  }
+}

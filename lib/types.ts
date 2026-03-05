@@ -2,6 +2,16 @@ export type RoundType = "independent" | "deliberation" | "judgment";
 export type SessionStatus = "draft" | "running" | "complete" | "error";
 export type RoundStatus = "pending" | "running" | "complete" | "error";
 export type ResponseStatus = "pending" | "complete" | "error";
+export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+export type CostSource = "provider" | "calculated" | "unavailable";
+
+export interface UsageMetrics {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens: number;
+  costUsd?: number;
+  costSource?: CostSource;
+}
 
 export interface ModelOption {
   id: string;
@@ -9,6 +19,11 @@ export interface ModelOption {
   provider: string;
   color: string;
   description: string;
+}
+
+export interface ModelInputMessage {
+  role: "system" | "user";
+  content: string;
 }
 
 export interface ModelResponse {
@@ -19,9 +34,16 @@ export interface ModelResponse {
   color: string;
   content: string;
   tokenCount: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  costUsd?: number;
+  costSource?: CostSource;
   latencyMs: number;
   status: ResponseStatus;
   error?: string;
+  errorReason?: string;
+  errorRequestId?: string;
+  inputMessages?: ModelInputMessage[];
 }
 
 export interface Round {
@@ -38,10 +60,13 @@ export interface SessionSettings {
   selectedModelIds: string[];
   judgeModelId: string;
   deliberationRounds: number;
+  reasoningEffortMap?: Record<string, ReasoningEffort>;
+  judgeReasoningEffort?: ReasoningEffort;
 }
 
 export interface Session {
   id: string;
+  title?: string;
   question: string;
   context: string;
   settings: SessionSettings;
@@ -59,4 +84,32 @@ export interface ChatMessage {
 export interface ChatResult {
   content: string;
   tokenCount: number;
+  usage: UsageMetrics;
+}
+
+export interface DraftState {
+  question: string;
+  context: string;
+  councilSize: number;
+  councilSlots: (string | null)[];
+  councilReasoningEfforts: Record<number, ReasoningEffort>;
+  judgeModelId: string;
+  judgeReasoningEffort: ReasoningEffort;
+  deliberationRounds: number;
+}
+
+export interface RoundOutcome {
+  modelId: string;
+  status: "complete" | "error";
+  content?: string;
+  tokenCount?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  costUsd?: number;
+  costSource?: CostSource;
+  latencyMs: number;
+  error?: string;
+  errorReason?: string;
+  errorRequestId?: string;
+  inputMessages?: ModelInputMessage[];
 }
