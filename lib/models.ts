@@ -133,6 +133,76 @@ export const MODEL_OPTIONS: ModelOption[] = [
     provider: "Nous Research",
     color: "#F59E0B",
     description: "Advanced reasoning and creative depth (Llama 3.1 405B)"
+  },
+  {
+    id: "minimax/minimax-m2.7",
+    name: "MiniMax M2.7",
+    provider: "MiniMax",
+    color: "#F59E0B",
+    description: "High-performance reasoning with cost efficiency"
+  },
+  {
+    id: "openai/gpt-5.4-nano",
+    name: "GPT-5.4 Nano",
+    provider: "OpenAI",
+    color: "#06B6D4",
+    description: "Lightweight ultra-fast reasoning"
+  },
+  {
+    id: "openai/gpt-5.4-mini",
+    name: "GPT-5.4 Mini",
+    provider: "OpenAI",
+    color: "#06B6D4",
+    description: "Balanced reasoning and speed"
+  },
+  {
+    id: "z-ai/glm-5-turbo",
+    name: "GLM-5 Turbo",
+    provider: "Z-AI",
+    color: "#14B8A6",
+    description: "Efficient multilingual reasoning"
+  },
+  {
+    id: "openrouter/hunter-alpha",
+    name: "Hunter Alpha",
+    provider: "OpenRouter",
+    color: "#EF4444",
+    description: "Strategic analysis and planning"
+  },
+  {
+    id: "openrouter/healer-alpha",
+    name: "Healer Alpha",
+    provider: "OpenRouter",
+    color: "#EF4444",
+    description: "Collaborative reasoning and synthesis"
+  },
+  {
+    id: "nvidia/nemotron-3-super-120b-a12b:free",
+    name: "Nemotron 3 Super",
+    provider: "NVIDIA",
+    color: "#76B900",
+    description: "Enterprise-grade reasoning with NVIDIA optimization"
+  },
+  {
+    id: "qwen/qwen3.5-9b",
+    name: "Qwen 3.5 9B",
+    provider: "Qwen",
+    color: "#67E8F9",
+    description: "Efficient multilingual logical reasoning"
+  },
+  {
+    id: "x-ai/grok-4.20-beta",
+    name: "Grok 4.20 Beta",
+    provider: "xAI",
+    color: "#EC4899",
+    description: "Real-time knowledge with advanced reasoning"
+  },
+  {
+    id: "x-ai/grok-4.20-multi-agent-beta",
+    name: "Grok 4.20 Multi-Agent Beta",
+    provider: "xAI",
+    color: "#EC4899",
+    description: "Multi-agent collaborative reasoning"
   }
 ];
 
