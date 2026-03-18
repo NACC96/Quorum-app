@@ -63,7 +63,8 @@ const INITIAL_DRAFT: DraftState = {
   judgeReasoningEffort: DEFAULT_REASONING_EFFORT,
   deliberationRounds: 0,
   summaryEnabled: false,
-  summaryModelId: DEFAULT_SUMMARY_MODEL
+  summaryModelId: DEFAULT_SUMMARY_MODEL,
+  summaryReasoningEffort: DEFAULT_REASONING_EFFORT
 };
 
 function getStepIndex(step: SetupStepId): number {
@@ -109,7 +110,8 @@ export default function CouncilPageClient(): React.JSX.Element {
       judgeReasoningEffort: source.settings.judgeReasoningEffort ?? DEFAULT_REASONING_EFFORT,
       deliberationRounds: source.settings.deliberationRounds,
       summaryEnabled: source.settings.summaryEnabled ?? false,
-      summaryModelId: source.settings.summaryModelId ?? DEFAULT_SUMMARY_MODEL
+      summaryModelId: source.settings.summaryModelId ?? DEFAULT_SUMMARY_MODEL,
+      summaryReasoningEffort: source.settings.summaryReasoningEffort ?? DEFAULT_REASONING_EFFORT
     };
   }, [fromSessionId, getSession]);
 
@@ -340,7 +342,8 @@ export default function CouncilPageClient(): React.JSX.Element {
         summaryEnabled: draft.summaryEnabled,
         summaryModelId: draft.summaryEnabled ? draft.summaryModelId : undefined,
         reasoningEffortMap,
-        judgeReasoningEffort: draft.judgeReasoningEffort
+        judgeReasoningEffort: draft.judgeReasoningEffort,
+        summaryReasoningEffort: draft.summaryEnabled ? draft.summaryReasoningEffort : undefined
       },
       status: "running",
       rounds: [],
@@ -601,22 +604,42 @@ export default function CouncilPageClient(): React.JSX.Element {
                       <label className={styles.fieldLabel} htmlFor="summary-model-select">
                         Summary Model
                       </label>
-                      <select
-                        id="summary-model-select"
-                        value={draft.summaryModelId}
-                        onChange={(event) =>
-                          setDraft((previous) => ({
-                            ...previous,
-                            summaryModelId: event.target.value
-                          }))
-                        }
-                      >
-                        {MODEL_OPTIONS.map((model) => (
-                          <option key={model.id} value={model.id}>
-                            {model.name} ({model.provider})
-                          </option>
-                        ))}
-                      </select>
+                      <div className={styles.judgeRow}>
+                        <select
+                          id="summary-model-select"
+                          value={draft.summaryModelId}
+                          onChange={(event) =>
+                            setDraft((previous) => ({
+                              ...previous,
+                              summaryModelId: event.target.value
+                            }))
+                          }
+                        >
+                          {MODEL_OPTIONS.map((model) => (
+                            <option key={model.id} value={model.id}>
+                              {model.name} ({model.provider})
+                            </option>
+                          ))}
+                        </select>
+
+                        <select
+                          className={styles.judgeEffortSelect}
+                          value={draft.summaryReasoningEffort}
+                          onChange={(event) =>
+                            setDraft((previous) => ({
+                              ...previous,
+                              summaryReasoningEffort: event.target.value as ReasoningEffort
+                            }))
+                          }
+                          aria-label="Summary thinking level"
+                        >
+                          {REASONING_EFFORT_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   )}
 
@@ -630,6 +653,11 @@ export default function CouncilPageClient(): React.JSX.Element {
                     {draft.summaryEnabled && (
                       <p>
                         Summary model: <strong>{summaryModel?.name ?? draft.summaryModelId}</strong>
+                      </p>
+                    )}
+                    {draft.summaryEnabled && (
+                      <p>
+                        Summary effort: <strong>{draft.summaryReasoningEffort}</strong>
                       </p>
                     )}
                     <p>
@@ -678,6 +706,11 @@ export default function CouncilPageClient(): React.JSX.Element {
                       {draft.summaryEnabled && (
                         <p>
                           Summary model: <strong>{summaryModel?.name ?? draft.summaryModelId}</strong>
+                        </p>
+                      )}
+                      {draft.summaryEnabled && (
+                        <p>
+                          Summary effort: <strong>{draft.summaryReasoningEffort}</strong>
                         </p>
                       )}
                       <p>

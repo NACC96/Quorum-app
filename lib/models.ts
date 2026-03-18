@@ -23,6 +23,13 @@ export const MODEL_OPTIONS: ModelOption[] = [
     description: "High-quality conversational reasoning and synthesis"
   },
   {
+    id: "openai/gpt-5.4",
+    name: "GPT-5.4",
+    provider: "OpenAI",
+    color: "#2563EB",
+    description: "Frontier general-purpose reasoning, coding, and synthesis"
+  },
+  {
     id: "inception/mercury-2",
     name: "Mercury 2",
     provider: "Inception",

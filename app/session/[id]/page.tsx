@@ -274,6 +274,12 @@ export default function SessionPage(): React.JSX.Element {
                       : "Off"}
                   </strong>
                 </span>
+                {session.settings.summaryEnabled && session.settings.summaryReasoningEffort && (
+                  <span>
+                    <small>Summary effort</small>
+                    <strong>{session.settings.summaryReasoningEffort}</strong>
+                  </span>
+                )}
                 {costSummary && (
                   <span>
                     <small>{session.status === "running" ? "Cost so far" : "Total cost"}</small>

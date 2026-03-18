@@ -69,6 +69,7 @@ export interface SessionSettings {
   summaryModelId?: string;
   reasoningEffortMap?: Record<string, ReasoningEffort>;
   judgeReasoningEffort?: ReasoningEffort;
+  summaryReasoningEffort?: ReasoningEffort;
 }
 
 export interface Session {
@@ -105,6 +106,7 @@ export interface DraftState {
   deliberationRounds: number;
   summaryEnabled: boolean;
   summaryModelId: string;
+  summaryReasoningEffort: ReasoningEffort;
 }
 
 export interface RoundOutcome {

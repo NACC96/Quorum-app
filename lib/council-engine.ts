@@ -415,7 +415,7 @@ async function runSummaryRound(
         inputMessages,
         0.7,
         65536,
-        DEFAULT_REASONING_EFFORT,
+        nextSession.settings.summaryReasoningEffort ?? DEFAULT_REASONING_EFFORT,
         signal
       )
     );
