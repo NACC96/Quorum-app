@@ -1,5 +1,6 @@
 import Link from "next/link";
 import styles from "@/app/components/nav-pill.module.css";
+import SignOutButton from "@/app/components/sign-out-button";
 
 interface NavPillProps {
   variant?: "landing" | "app";
@@ -32,9 +33,13 @@ export default function NavPill({ variant = "landing" }: NavPillProps): React.JS
         )}
       </nav>
 
-      <Link href="/council" className={styles.navCta}>
-        Convene
-      </Link>
+      {variant === "app" ? (
+        <SignOutButton />
+      ) : (
+        <Link href="/council" className={styles.navCta}>
+          Convene
+        </Link>
+      )}
     </header>
   );
 }
