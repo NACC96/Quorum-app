@@ -16,6 +16,7 @@ import {
   getModelsByIds
 } from "@/lib/models";
 import { DraftState, ReasoningEffort } from "@/lib/types";
+import { getAllArchetypes, Archetype } from "@/lib/archetypes";
 import { useSessionsContext } from "@/lib/sessions-context";
 import { createId } from "@/lib/council-engine";
 import { getEstimatedModelCallCount, getExpectedRoundCount } from "@/lib/format";
@@ -59,8 +60,10 @@ const INITIAL_DRAFT: DraftState = {
   councilSize: DEFAULT_COUNCIL.length,
   councilSlots: DEFAULT_COUNCIL.map((id) => id),
   councilReasoningEfforts: {},
+  councilArchetypeMap: {},
   judgeModelId: DEFAULT_JUDGE,
   judgeReasoningEffort: DEFAULT_REASONING_EFFORT,
+  judgeArchetypeId: null,
   deliberationRounds: 0,
   summaryEnabled: false,
   summaryModelId: DEFAULT_SUMMARY_MODEL,
@@ -100,14 +103,23 @@ export default function CouncilPageClient(): React.JSX.Element {
       });
     }
 
+    const archetypeMap: Record<number, string | null> = {};
+    if (source.settings.archetypeMap) {
+      for (const [key, value] of Object.entries(source.settings.archetypeMap)) {
+        archetypeMap[Number(key)] = value;
+      }
+    }
+
     return {
       question: source.question,
       context: source.context,
       councilSize: modelIds.length,
       councilSlots: [...modelIds],
       councilReasoningEfforts: effortMap,
+      councilArchetypeMap: archetypeMap,
       judgeModelId: source.settings.judgeModelId,
       judgeReasoningEffort: source.settings.judgeReasoningEffort ?? DEFAULT_REASONING_EFFORT,
+      judgeArchetypeId: source.settings.judgeArchetypeId ?? null,
       deliberationRounds: source.settings.deliberationRounds,
       summaryEnabled: source.settings.summaryEnabled ?? false,
       summaryModelId: source.settings.summaryModelId ?? DEFAULT_SUMMARY_MODEL,
@@ -153,6 +165,9 @@ export default function CouncilPageClient(): React.JSX.Element {
 
   const judgeModel = getModelById(draft.judgeModelId);
   const summaryModel = getModelById(draft.summaryModelId);
+
+  const councilArchetypes = useMemo(() => getAllArchetypes("council"), []);
+  const judgeArchetypes = useMemo(() => getAllArchetypes("judge"), []);
 
   const canProceedFromStep = (step: SetupStepId): boolean => {
     if (step === "prompt") {
@@ -260,11 +275,16 @@ export default function CouncilPageClient(): React.JSX.Element {
         Object.entries(previous.councilReasoningEfforts).filter(([key]) => Number(key) < nextSize)
       ) as Record<number, ReasoningEffort>;
 
+      const nextArchetypes = Object.fromEntries(
+        Object.entries(previous.councilArchetypeMap).filter(([key]) => Number(key) < nextSize)
+      ) as Record<number, string | null>;
+
       return {
         ...previous,
         councilSize: nextSize,
         councilSlots: nextSlots,
-        councilReasoningEfforts: nextEfforts
+        councilReasoningEfforts: nextEfforts,
+        councilArchetypeMap: nextArchetypes
       };
     });
 
@@ -331,6 +351,14 @@ export default function CouncilPageClient(): React.JSX.Element {
 
     const sessionId = createId();
 
+    const archetypeMap: Record<number, string> = {};
+    for (let index = 0; index < selectedModelIds.length; index += 1) {
+      const archetypeId = draft.councilArchetypeMap[index];
+      if (archetypeId) {
+        archetypeMap[index] = archetypeId;
+      }
+    }
+
     addSession({
       id: sessionId,
       question: draft.question.trim(),
@@ -343,7 +371,9 @@ export default function CouncilPageClient(): React.JSX.Element {
         summaryModelId: draft.summaryEnabled ? draft.summaryModelId : undefined,
         reasoningEffortMap,
         judgeReasoningEffort: draft.judgeReasoningEffort,
-        summaryReasoningEffort: draft.summaryEnabled ? draft.summaryReasoningEffort : undefined
+        summaryReasoningEffort: draft.summaryEnabled ? draft.summaryReasoningEffort : undefined,
+        archetypeMap: Object.keys(archetypeMap).length > 0 ? archetypeMap : undefined,
+        judgeArchetypeId: draft.judgeArchetypeId ?? undefined
       },
       status: "running",
       rounds: [],
@@ -481,27 +511,52 @@ export default function CouncilPageClient(): React.JSX.Element {
                         </button>
 
                         {model && (
-                          <select
-                            className={styles.effortSelect}
-                            value={effort}
-                            onChange={(event) => {
-                              const value = event.target.value as ReasoningEffort;
-                              setDraft((previous) => ({
-                                ...previous,
-                                councilReasoningEfforts: {
-                                  ...previous.councilReasoningEfforts,
-                                  [index]: value
-                                }
-                              }));
-                            }}
-                            aria-label={`Thinking level for ${model.name}`}
-                          >
-                            {REASONING_EFFORT_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
+                          <div className={styles.slotControls}>
+                            <select
+                              className={styles.effortSelect}
+                              value={effort}
+                              onChange={(event) => {
+                                const value = event.target.value as ReasoningEffort;
+                                setDraft((previous) => ({
+                                  ...previous,
+                                  councilReasoningEfforts: {
+                                    ...previous.councilReasoningEfforts,
+                                    [index]: value
+                                  }
+                                }));
+                              }}
+                              aria-label={`Thinking level for ${model.name}`}
+                            >
+                              {REASONING_EFFORT_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+
+                            <select
+                              className={styles.archetypeSelect}
+                              value={draft.councilArchetypeMap[index] ?? ""}
+                              onChange={(event) => {
+                                const value = event.target.value || null;
+                                setDraft((previous) => ({
+                                  ...previous,
+                                  councilArchetypeMap: {
+                                    ...previous.councilArchetypeMap,
+                                    [index]: value
+                                  }
+                                }));
+                              }}
+                              aria-label={`Archetype for ${model.name}`}
+                            >
+                              <option value="">No archetype</option>
+                              {councilArchetypes.map((archetype) => (
+                                <option key={archetype.id} value={archetype.id}>
+                                  {archetype.icon} {archetype.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         )}
                       </div>
                     ))}
@@ -553,6 +608,29 @@ export default function CouncilPageClient(): React.JSX.Element {
                         ))}
                       </select>
                     </div>
+                  </div>
+
+                  <div className={styles.fieldBlock}>
+                    <label className={styles.fieldLabel} htmlFor="judge-archetype-select">
+                      Judge Archetype
+                    </label>
+                    <select
+                      id="judge-archetype-select"
+                      value={draft.judgeArchetypeId ?? ""}
+                      onChange={(event) =>
+                        setDraft((previous) => ({
+                          ...previous,
+                          judgeArchetypeId: event.target.value || null
+                        }))
+                      }
+                    >
+                      <option value="">No archetype</option>
+                      {judgeArchetypes.map((archetype) => (
+                        <option key={archetype.id} value={archetype.id}>
+                          {archetype.icon} {archetype.name} — {archetype.description}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className={styles.fieldBlock}>
@@ -684,14 +762,22 @@ export default function CouncilPageClient(): React.JSX.Element {
                     <article className={styles.reviewCard}>
                       <h3>Council</h3>
                       <ul>
-                        {assignedCouncilModels.map(({ index, model, effort }) => (
-                          <li key={index}>
-                            <span>
-                              Slot {index + 1}: <strong>{model?.name ?? "Unassigned"}</strong>
-                            </span>
-                            <small>{effort}</small>
-                          </li>
-                        ))}
+                        {assignedCouncilModels.map(({ index, model, effort }) => {
+                          const slotArchetype = councilArchetypes.find(
+                            (a) => a.id === draft.councilArchetypeMap[index]
+                          );
+                          return (
+                            <li key={index}>
+                              <span>
+                                Slot {index + 1}: <strong>{model?.name ?? "Unassigned"}</strong>
+                                {slotArchetype && (
+                                  <> — {slotArchetype.icon} {slotArchetype.name}</>
+                                )}
+                              </span>
+                              <small>{effort}</small>
+                            </li>
+                          );
+                        })}
                       </ul>
                     </article>
 
@@ -713,6 +799,14 @@ export default function CouncilPageClient(): React.JSX.Element {
                           Summary effort: <strong>{draft.summaryReasoningEffort}</strong>
                         </p>
                       )}
+                      {draft.judgeArchetypeId && (() => {
+                        const ja = judgeArchetypes.find((a) => a.id === draft.judgeArchetypeId);
+                        return ja ? (
+                          <p>
+                            Judge archetype: <strong>{ja.icon} {ja.name}</strong>
+                          </p>
+                        ) : null;
+                      })()}
                       <p>
                         Judge effort: <strong>{draft.judgeReasoningEffort}</strong>
                       </p>

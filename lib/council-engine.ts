@@ -23,6 +23,23 @@ import {
   buildJudgmentPrompt,
   buildSummaryPrompt
 } from "@/lib/prompts";
+import { getArchetypeById } from "@/lib/archetypes";
+
+function getArchetypeSnippet(session: Session, modelId: string): string | undefined {
+  const map = session.settings.archetypeMap;
+  if (!map) return undefined;
+  const slotIndex = session.settings.selectedModelIds.indexOf(modelId);
+  if (slotIndex === -1) return undefined;
+  const archetypeId = map[slotIndex];
+  if (!archetypeId) return undefined;
+  return getArchetypeById(archetypeId)?.systemPromptSnippet;
+}
+
+function getJudgeArchetypeSnippet(session: Session): string | undefined {
+  const archetypeId = session.settings.judgeArchetypeId;
+  if (!archetypeId) return undefined;
+  return getArchetypeById(archetypeId)?.systemPromptSnippet;
+}
 
 class ModelRequestError extends Error {
   readonly reason?: string;
@@ -465,7 +482,7 @@ async function runJudgmentRound(
   persistFull(nextSession);
 
   const started = Date.now();
-  const prompt = buildJudgmentPrompt(nextSession.question, nextSession.context, judge, sourceRounds);
+  const prompt = buildJudgmentPrompt(nextSession.question, nextSession.context, judge, sourceRounds, getJudgeArchetypeSnippet(nextSession));
   const inputMessages: ModelInputMessage[] = [
     { role: "system", content: prompt.system },
     { role: "user", content: prompt.user }
@@ -534,7 +551,7 @@ async function appendIndependentRound(
     nextSession,
     independentRound,
     councilModels,
-    (model) => buildIndependentPrompt(nextSession.question, nextSession.context, model),
+    (model) => buildIndependentPrompt(nextSession.question, nextSession.context, model, getArchetypeSnippet(nextSession, model.id)),
     persistFull,
     persistPatch
   );
@@ -567,7 +584,8 @@ async function appendDeliberationRound(
         nextSession.context,
         model,
         priorRound,
-        deliberationIndex
+        deliberationIndex,
+        getArchetypeSnippet(nextSession, model.id)
       ),
     persistFull,
     persistPatch
@@ -904,7 +922,7 @@ export async function retryFailedModelsForRound(
       workingSession,
       refreshedRound,
       retryModels,
-      (model) => buildIndependentPrompt(workingSession.question, workingSession.context, model),
+      (model) => buildIndependentPrompt(workingSession.question, workingSession.context, model, getArchetypeSnippet(workingSession, model.id)),
       persistFull,
       persistPatch
     );
@@ -925,7 +943,8 @@ export async function retryFailedModelsForRound(
         workingSession.context,
         model,
         priorRound,
-        refreshedRound.deliberationIndex ?? 1
+        refreshedRound.deliberationIndex ?? 1,
+        getArchetypeSnippet(workingSession, model.id)
       ),
     persistFull,
     persistPatch

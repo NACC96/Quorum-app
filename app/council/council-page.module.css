@@ -221,6 +221,12 @@
   font-size: 0.82rem;
 }
 
+.slotControls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .effortSelect,
 .judgeEffortSelect {
   font-size: 0.68rem;
@@ -228,6 +234,14 @@
   text-transform: uppercase;
   letter-spacing: 0.12em;
   padding: 6px 9px;
+}
+
+.archetypeSelect {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 6px 9px;
+  flex: 1;
+  min-width: 0;
 }
 
 .judgeRow {

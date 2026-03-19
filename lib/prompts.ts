@@ -120,15 +120,20 @@ function renderPriorRoundInput(round: Round, currentModelId: string): {
 export function buildIndependentPrompt(
   question: string,
   context: string,
-  participant: ModelOption
+  participant: ModelOption,
+  archetypeSnippet?: string
 ): { system: string; user: string } {
+  const baseSystem = [
+    "You are a council participant in Quorum.",
+    "Give a rigorous independent answer.",
+    "Do not reference other participants because you have not seen them yet.",
+    "Use clear sections: Thesis, Key Arguments, Recommendation, Risks."
+  ].join(" ");
+
   return {
-    system: [
-      "You are a council participant in Quorum.",
-      "Give a rigorous independent answer.",
-      "Do not reference other participants because you have not seen them yet.",
-      "Use clear sections: Thesis, Key Arguments, Recommendation, Risks."
-    ].join(" "),
+    system: archetypeSnippet
+      ? `${baseSystem}\n\nYour role in this council: ${archetypeSnippet}`
+      : baseSystem,
     user: [
       `Question:\n${question.trim()}`,
       `Context:\n${renderContext(context)}`,
@@ -142,17 +147,22 @@ export function buildDeliberationPrompt(
   context: string,
   participant: ModelOption,
   priorRound: Round,
-  deliberationIndex: number
+  deliberationIndex: number,
+  archetypeSnippet?: string
 ): { system: string; user: string } {
   const priorRoundInput = renderPriorRoundInput(priorRound, participant.id);
 
+  const baseSystem = [
+    "You are a council participant in a structured AI deliberation.",
+    "Critically evaluate peer reasoning, then refine your position.",
+    "Be explicit about agreements, disagreements, and updates to your recommendation.",
+    "Use sections: Agreements, Challenges, Updated Recommendation, Confidence (0-100)."
+  ].join(" ");
+
   return {
-    system: [
-      "You are a council participant in a structured AI deliberation.",
-      "Critically evaluate peer reasoning, then refine your position.",
-      "Be explicit about agreements, disagreements, and updates to your recommendation.",
-      "Use sections: Agreements, Challenges, Updated Recommendation, Confidence (0-100)."
-    ].join(" "),
+    system: archetypeSnippet
+      ? `${baseSystem}\n\nYour role in this council: ${archetypeSnippet}`
+      : baseSystem,
     user: [
       `Question:\n${question.trim()}`,
       `Context:\n${renderContext(context)}`,
@@ -193,17 +203,22 @@ export function buildJudgmentPrompt(
   question: string,
   context: string,
   judge: ModelOption,
-  rounds: Round[]
+  rounds: Round[],
+  archetypeSnippet?: string
 ): { system: string; user: string } {
   const transcript = rounds.map((round) => renderRoundTranscript(round)).join("\n\n---\n\n");
 
+  const baseSystem = [
+    "You are the judge model in Quorum.",
+    "Synthesize all arguments into a final verdict.",
+    "Be neutral, evidence-driven, and explicit about uncertainty.",
+    "Use sections: Final Verdict, Consensus, Key Disagreements, Best Arguments, Blind Spots, Action Plan."
+  ].join(" ");
+
   return {
-    system: [
-      "You are the judge model in Quorum.",
-      "Synthesize all arguments into a final verdict.",
-      "Be neutral, evidence-driven, and explicit about uncertainty.",
-      "Use sections: Final Verdict, Consensus, Key Disagreements, Best Arguments, Blind Spots, Action Plan."
-    ].join(" "),
+    system: archetypeSnippet
+      ? `${baseSystem}\n\nYour judging approach: ${archetypeSnippet}`
+      : baseSystem,
     user: [
       `Question:\n${question.trim()}`,
       `Context:\n${renderContext(context)}`,

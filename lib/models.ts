@@ -163,20 +163,6 @@ export const MODEL_OPTIONS: ModelOption[] = [
     description: "Efficient multilingual reasoning"
   },
   {
-    id: "openrouter/hunter-alpha",
-    name: "Hunter Alpha",
-    provider: "OpenRouter",
-    color: "#EF4444",
-    description: "Strategic analysis and planning"
-  },
-  {
-    id: "openrouter/healer-alpha",
-    name: "Healer Alpha",
-    provider: "OpenRouter",
-    color: "#EF4444",
-    description: "Collaborative reasoning and synthesis"
-  },
-  {
     id: "nvidia/nemotron-3-super-120b-a12b:free",
     name: "Nemotron 3 Super",
     provider: "NVIDIA",
@@ -203,6 +189,20 @@ export const MODEL_OPTIONS: ModelOption[] = [
     provider: "xAI",
     color: "#EC4899",
     description: "Multi-agent collaborative reasoning"
+  },
+  {
+    id: "xiaomi/mimo-v2-omni",
+    name: "MiMo v2 Omni",
+    provider: "Xiaomi",
+    color: "#FF6900",
+    description: "Omni-modal reasoning and generation"
+  },
+  {
+    id: "xiaomi/mimo-v2-pro",
+    name: "MiMo v2 Pro",
+    provider: "Xiaomi",
+    color: "#FF6900",
+    description: "Advanced reasoning and problem solving"
   }
 ];
 

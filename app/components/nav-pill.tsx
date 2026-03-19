@@ -26,6 +26,9 @@ export default function NavPill({ variant = "landing" }: NavPillProps): React.JS
             <Link href="/council" className={styles.navLink}>
               Council
             </Link>
+            <Link href="/archetypes" className={styles.navLink}>
+              Archetypes
+            </Link>
             <Link href="/" className={styles.navLink}>
               Home
             </Link>

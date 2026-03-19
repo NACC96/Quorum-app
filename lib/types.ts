@@ -70,6 +70,8 @@ export interface SessionSettings {
   reasoningEffortMap?: Record<string, ReasoningEffort>;
   judgeReasoningEffort?: ReasoningEffort;
   summaryReasoningEffort?: ReasoningEffort;
+  archetypeMap?: Record<number, string>;
+  judgeArchetypeId?: string;
 }
 
 export interface Session {
@@ -101,8 +103,10 @@ export interface DraftState {
   councilSize: number;
   councilSlots: (string | null)[];
   councilReasoningEfforts: Record<number, ReasoningEffort>;
+  councilArchetypeMap: Record<number, string | null>;
   judgeModelId: string;
   judgeReasoningEffort: ReasoningEffort;
+  judgeArchetypeId: string | null;
   deliberationRounds: number;
   summaryEnabled: boolean;
   summaryModelId: string;
