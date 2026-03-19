@@ -1,8 +1,12 @@
-.setupContainer {
+.pageGrid {
   margin-top: 48px;
+  display: grid;
+  grid-template-columns: minmax(250px, 300px) 1fr;
+  gap: 20px;
+}
+
+.setupContainer {
   max-width: 780px;
-  margin-left: auto;
-  margin-right: auto;
   display: grid;
   gap: 14px;
 }
@@ -379,6 +383,12 @@
   background: rgba(10, 10, 10, 0.72);
   padding: 24px;
   color: rgba(225, 225, 225, 0.76);
+}
+
+@media (max-width: 1140px) {
+  .pageGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 860px) {

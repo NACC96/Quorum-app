@@ -21,6 +21,7 @@ import NavPill from "@/app/components/nav-pill";
 import Footer from "@/app/components/footer";
 import ModelPickerModal from "@/app/components/model-picker-modal";
 import SetupStepProgress, { SetupStepProgressItem } from "@/app/components/setup-step-progress";
+import DeliberationHistoryPanel from "@/app/components/deliberation-history-panel";
 import styles from "@/app/deliberation/deliberation-setup.module.css";
 
 type SetupStepId = "prompt" | "council" | "judge" | "review";
@@ -82,7 +83,7 @@ function getStepIndex(step: SetupStepId): number {
 
 export default function DeliberationSetupClient(): React.JSX.Element {
   const router = useRouter();
-  const { addDeliberation } = useDeliberationContext();
+  const { deliberations, addDeliberation, removeDeliberation } = useDeliberationContext();
 
   const [draft, setDraft] = useState<DeliberationDraft>(INITIAL_DRAFT);
   const [currentStep, setCurrentStep] = useState<SetupStepId>("prompt");
@@ -290,7 +291,13 @@ export default function DeliberationSetupClient(): React.JSX.Element {
       <NavPill variant="app" />
 
       <main className="main-shell">
-        <div className={styles.setupContainer}>
+        <div className={styles.pageGrid}>
+          <DeliberationHistoryPanel
+            sessions={deliberations}
+            onDeleteSession={removeDeliberation}
+          />
+
+          <div className={styles.setupContainer}>
           <header className={styles.setupHeader}>
             <h1 className={styles.setupTitle}>Start Deliberation</h1>
             <p className={styles.setupCopy}>
@@ -653,6 +660,7 @@ export default function DeliberationSetupClient(): React.JSX.Element {
               </button>
             )}
           </div>
+        </div>
         </div>
       </main>
 
