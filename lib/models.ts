@@ -145,15 +145,15 @@ export const MODEL_OPTIONS: ModelOption[] = [
     id: "openai/gpt-5.4-nano",
     name: "GPT-5.4 Nano",
     provider: "OpenAI",
-    color: "#06B6D4",
-    description: "Lightweight ultra-fast reasoning"
+    color: "#10B981",
+    description: "Compact and efficient reasoning"
   },
   {
     id: "openai/gpt-5.4-mini",
     name: "GPT-5.4 Mini",
     provider: "OpenAI",
-    color: "#06B6D4",
-    description: "Balanced reasoning and speed"
+    color: "#3B82F6",
+    description: "Balanced performance and efficiency"
   },
   {
     id: "z-ai/glm-5-turbo",
@@ -203,6 +203,13 @@ export const MODEL_OPTIONS: ModelOption[] = [
     provider: "Xiaomi",
     color: "#FF6900",
     description: "Advanced reasoning and problem solving"
+  },
+  {
+    id: "mistralai/mistral-small-2603",
+    name: "Mistral Small (2603)",
+    provider: "Mistral AI",
+    color: "#FF7000",
+    description: "Fast and efficient small language model"
   }
 ];
 
