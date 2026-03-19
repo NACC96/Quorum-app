@@ -128,3 +128,70 @@ export interface RoundOutcome {
   errorRequestId?: string;
   inputMessages?: ModelInputMessage[];
 }
+
+// --- Deliberation Mode types ---
+
+export type DeliberationPhase = "deliberating" | "user-turn" | "judging" | "voting" | "complete";
+
+export interface DeliberationMessage {
+  id: string;
+  role: "model" | "user" | "judge" | "system";
+  modelId?: string;
+  modelName?: string;
+  color?: string;
+  content: string;
+  tokenCount?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  costUsd?: number;
+  costSource?: CostSource;
+  latencyMs?: number;
+  timestamp: string;
+  status: "pending" | "streaming" | "complete" | "error";
+  error?: string;
+}
+
+export interface JudgeSolution {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export interface ModelVote {
+  modelId: string;
+  modelName: string;
+  color: string;
+  chosenSolutionId: string;
+  reasoning: string;
+  tokenCount?: number;
+  costUsd?: number;
+  costSource?: CostSource;
+  latencyMs?: number;
+}
+
+export interface DeliberationSettings {
+  selectedModelIds: string[];
+  judgeModelId: string;
+  turnsPerBatch: number;
+  archetypeMap?: Record<number, string>;
+  judgeArchetypeId?: string;
+  reasoningEffortMap?: Record<string, ReasoningEffort>;
+  judgeReasoningEffort?: ReasoningEffort;
+}
+
+export interface DeliberationSession {
+  id: string;
+  title?: string;
+  question: string;
+  context: string;
+  settings: DeliberationSettings;
+  messages: DeliberationMessage[];
+  phase: DeliberationPhase;
+  currentTurn: number;
+  totalTurnsInBatch: number;
+  judgeSolutions?: JudgeSolution[];
+  judgeRawResponse?: string;
+  votes?: ModelVote[];
+  createdAt: string;
+  updatedAt: string;
+}

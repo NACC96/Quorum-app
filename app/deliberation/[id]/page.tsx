@@ -1,0 +1,627 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { useDeliberationContext } from "@/lib/deliberation-context";
+import {
+  executeDeliberationBatch,
+  executeJudgePhase,
+  executeVoting,
+  addUserMessage,
+  type BatchCallbacks,
+} from "@/lib/deliberation-engine";
+import { formatUsd, msToSeconds } from "@/lib/format";
+import { DeliberationMessage, DeliberationSession, JudgeSolution, ModelVote } from "@/lib/types";
+import NavPill from "@/app/components/nav-pill";
+import Footer from "@/app/components/footer";
+import DeliberationHistoryPanel from "@/app/components/deliberation-history-panel";
+import styles from "@/app/deliberation/[id]/deliberation-chat.module.css";
+
+export default function DeliberationChatPage(): React.JSX.Element {
+  const params = useParams();
+  const router = useRouter();
+  const id = params.id as string;
+
+  const { deliberations, getDeliberation, updateDeliberation, removeDeliberation } =
+    useDeliberationContext();
+
+  // Local copy of session for fast UI updates during streaming
+  const [session, setSession] = useState<DeliberationSession | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [userMessage, setUserMessage] = useState("");
+  const [nextBatchSize, setNextBatchSize] = useState<number | null>(null);
+
+  const messageEndRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const autoStarted = useRef(false);
+
+  // Load session from context
+  useEffect(() => {
+    const loaded = getDeliberation(id);
+    if (loaded) {
+      setSession(loaded);
+      if (nextBatchSize === null) {
+        setNextBatchSize(loaded.settings.turnsPerBatch);
+      }
+    }
+  }, [id, getDeliberation, nextBatchSize]);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [session?.messages.length, session?.messages[session.messages.length - 1]?.content]);
+
+  // Persist session changes to context
+  const persistSession = useCallback(
+    (updated: DeliberationSession) => {
+      setSession(updated);
+      updateDeliberation(updated);
+    },
+    [updateDeliberation]
+  );
+
+  // ---- Auto-start first batch on mount ----
+  useEffect(() => {
+    if (!session) return;
+    if (autoStarted.current) return;
+    if (session.phase !== "deliberating" || session.messages.length > 0) return;
+
+    autoStarted.current = true;
+    runBatch(session);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
+  // ---- Engine operations ----
+
+  const runBatch = async (currentSession: DeliberationSession) => {
+    if (isRunning) return;
+    setIsRunning(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    let working = {
+      ...currentSession,
+      totalTurnsInBatch: nextBatchSize ?? currentSession.settings.turnsPerBatch,
+      phase: "deliberating" as const,
+    };
+    setSession(working);
+
+    const callbacks: BatchCallbacks = {
+      onTurnStart: (_modelId, _turnNumber) => {
+        // The engine adds a pending message — we re-render via onChunk/onTurnComplete
+      },
+      onChunk: (chunk) => {
+        setSession((prev) => {
+          if (!prev) return prev;
+          const msgs = [...prev.messages];
+          const last = msgs[msgs.length - 1];
+          if (last && last.status === "streaming") {
+            msgs[msgs.length - 1] = { ...last, content: last.content + chunk };
+          }
+          return { ...prev, messages: msgs };
+        });
+      },
+      onTurnComplete: (message) => {
+        setSession((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            messages: prev.messages.map((m) => (m.id === message.id ? message : m)),
+          };
+        });
+      },
+      onBatchComplete: (completed) => {
+        persistSession(completed);
+      },
+    };
+
+    try {
+      const result = await executeDeliberationBatch(working, callbacks, controller.signal);
+      persistSession(result);
+    } catch {
+      // aborted or errored — keep current state
+    } finally {
+      setIsRunning(false);
+      abortRef.current = null;
+    }
+  };
+
+  const runJudge = async (currentSession: DeliberationSession) => {
+    if (isRunning) return;
+    setIsRunning(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    let working = { ...currentSession, phase: "judging" as const };
+    setSession(working);
+
+    try {
+      const result = await executeJudgePhase(
+        working,
+        {
+          onChunk: (chunk) => {
+            setSession((prev) => {
+              if (!prev) return prev;
+              const msgs = [...prev.messages];
+              const last = msgs[msgs.length - 1];
+              if (last && last.status === "streaming") {
+                msgs[msgs.length - 1] = { ...last, content: last.content + chunk };
+              }
+              return { ...prev, messages: msgs };
+            });
+          },
+          onComplete: (_solutions) => {
+            // handled after return
+          },
+        },
+        controller.signal
+      );
+      persistSession(result);
+    } catch {
+      // aborted or errored
+    } finally {
+      setIsRunning(false);
+      abortRef.current = null;
+    }
+  };
+
+  const runVoting = async (currentSession: DeliberationSession) => {
+    if (isRunning) return;
+    setIsRunning(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    let working = { ...currentSession, phase: "voting" as const };
+    setSession(working);
+
+    try {
+      const result = await executeVoting(
+        working,
+        {
+          onVoteComplete: (vote) => {
+            setSession((prev) => {
+              if (!prev) return prev;
+              const existing = prev.votes ?? [];
+              return { ...prev, votes: [...existing, vote] };
+            });
+          },
+        },
+        controller.signal
+      );
+      persistSession(result);
+    } catch {
+      // aborted or errored
+    } finally {
+      setIsRunning(false);
+      abortRef.current = null;
+    }
+  };
+
+  // ---- User actions ----
+
+  const handleSendAndContinue = () => {
+    if (!session) return;
+    let updated = session;
+    if (userMessage.trim()) {
+      updated = addUserMessage(updated, userMessage.trim());
+      persistSession(updated);
+      setUserMessage("");
+    }
+    runBatch(updated);
+  };
+
+  const handleSendToJudge = () => {
+    if (!session) return;
+    let updated = session;
+    if (userMessage.trim()) {
+      updated = addUserMessage(updated, userMessage.trim());
+      persistSession(updated);
+      setUserMessage("");
+    }
+    runJudge(updated);
+  };
+
+  const handleSkipAndContinue = () => {
+    if (!session) return;
+    runBatch(session);
+  };
+
+  const handleSkipToJudge = () => {
+    if (!session) return;
+    runJudge(session);
+  };
+
+  const handleStartVoting = () => {
+    if (!session) return;
+    runVoting(session);
+  };
+
+  const handleDeleteSession = (sessionId: string) => {
+    removeDeliberation(sessionId);
+    if (sessionId === id) {
+      router.push("/deliberation");
+    }
+  };
+
+  // ---- Computed values ----
+
+  const winningSolutionId = (() => {
+    if (!session?.votes || !session.judgeSolutions) return null;
+    const tally: Record<string, number> = {};
+    for (const vote of session.votes) {
+      tally[vote.chosenSolutionId] = (tally[vote.chosenSolutionId] ?? 0) + 1;
+    }
+    let maxCount = 0;
+    let winnerId = "";
+    for (const [solutionId, count] of Object.entries(tally)) {
+      if (count > maxCount) {
+        maxCount = count;
+        winnerId = solutionId;
+      }
+    }
+    return winnerId || null;
+  })();
+
+  const voteTally = (() => {
+    if (!session?.votes || !session.judgeSolutions) return [];
+    const tally: Record<string, number> = {};
+    for (const vote of session.votes) {
+      tally[vote.chosenSolutionId] = (tally[vote.chosenSolutionId] ?? 0) + 1;
+    }
+    return session.judgeSolutions.map((s) => ({
+      solution: s,
+      count: tally[s.id] ?? 0,
+    }));
+  })();
+
+  // ---- Not found ----
+
+  if (!session) {
+    return (
+      <div className="synapse-root">
+        <div className="ambient-orb ambient-orb-violet" aria-hidden />
+        <div className="ambient-orb ambient-orb-cyan" aria-hidden />
+        <NavPill variant="app" />
+        <main className="main-shell">
+          <section className={styles.notFoundCard}>
+            <h2>Session Not Found</h2>
+            <p>This deliberation doesn&apos;t exist or has been deleted.</p>
+            <Link href="/deliberation" className={styles.launchLink}>
+              New Deliberation
+            </Link>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // ---- Render helpers ----
+
+  const renderMessage = (msg: DeliberationMessage) => {
+    if (msg.role === "user") {
+      return (
+        <div key={msg.id} className={`${styles.message} ${styles.messageUser}`}>
+          <div className={styles.messageHeader}>
+            <span className={styles.messageName}>You</span>
+          </div>
+          <p className={styles.messageContent}>{msg.content}</p>
+        </div>
+      );
+    }
+
+    if (msg.role === "judge") {
+      return (
+        <div key={msg.id} className={`${styles.message} ${styles.messageJudge}`}>
+          <div className={styles.messageHeader}>
+            <span
+              className={styles.messageDot}
+              style={{ backgroundColor: msg.color ?? "#fbbf24" }}
+              aria-hidden
+            />
+            <span className={styles.messageName}>Judge: {msg.modelName}</span>
+          </div>
+          <p className={styles.messageContent}>
+            {msg.content}
+            {msg.status === "streaming" && <span className={styles.streamingCursor} />}
+          </p>
+          {msg.status === "error" && (
+            <p className={styles.messageErrorText}>{msg.error ?? "Judge execution failed."}</p>
+          )}
+          {msg.status === "complete" && (
+            <div className={styles.messageMetrics}>
+              {msg.tokenCount != null && msg.tokenCount > 0 && <span>{msg.tokenCount} tok</span>}
+              {msg.latencyMs != null && msg.latencyMs > 0 && <span>{msToSeconds(msg.latencyMs)}</span>}
+              {msg.costUsd != null && <span>{formatUsd(msg.costUsd)}</span>}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (msg.status === "error") {
+      return (
+        <div key={msg.id} className={`${styles.message} ${styles.messageError}`}>
+          <div className={styles.messageHeader}>
+            <span
+              className={styles.messageDot}
+              style={{ backgroundColor: msg.color ?? "#f87171" }}
+              aria-hidden
+            />
+            <span className={styles.messageName}>{msg.modelName ?? "Model"}</span>
+          </div>
+          <p className={styles.messageErrorText}>{msg.error ?? "Model execution failed."}</p>
+        </div>
+      );
+    }
+
+    // Model message
+    return (
+      <div
+        key={msg.id}
+        className={`${styles.message} ${styles.messageModel}`}
+        style={{ "--msg-color": msg.color ?? "rgba(139, 92, 246, 0.7)" } as React.CSSProperties}
+      >
+        <div className={styles.messageHeader}>
+          <span
+            className={styles.messageDot}
+            style={{ backgroundColor: msg.color ?? "#8b5cf6" }}
+            aria-hidden
+          />
+          <span className={styles.messageName}>{msg.modelName ?? "Model"}</span>
+        </div>
+        <p className={styles.messageContent}>
+          {msg.content}
+          {msg.status === "streaming" && <span className={styles.streamingCursor} />}
+        </p>
+        {msg.status === "complete" && (
+          <div className={styles.messageMetrics}>
+            {msg.tokenCount != null && msg.tokenCount > 0 && <span>{msg.tokenCount} tok</span>}
+            {msg.latencyMs != null && msg.latencyMs > 0 && <span>{msToSeconds(msg.latencyMs)}</span>}
+            {msg.costUsd != null && <span>{formatUsd(msg.costUsd)}</span>}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderControls = () => {
+    const phase = session.phase;
+
+    if (phase === "deliberating" && isRunning) {
+      const activeModel = session.messages.findLast((m) => m.role === "model");
+      return (
+        <div className={styles.controlBar}>
+          <div className={styles.phaseIndicator}>
+            <div className={styles.phaseSpinner} aria-hidden />
+            <span>
+              Turn {session.currentTurn + 1} of {session.totalTurnsInBatch}
+              {activeModel?.modelName ? ` — ${activeModel.modelName} is thinking...` : " — Processing..."}
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    if (phase === "user-turn" && !isRunning) {
+      return (
+        <div className={styles.controlBar}>
+          <div className={styles.inputArea}>
+            <div className={styles.inputRow}>
+              <textarea
+                className={styles.chatTextarea}
+                value={userMessage}
+                onChange={(e) => setUserMessage(e.target.value)}
+                placeholder="Add your thoughts (optional)..."
+                rows={2}
+              />
+              <div>
+                <input
+                  type="number"
+                  className={styles.batchSizeInput}
+                  value={nextBatchSize ?? session.settings.turnsPerBatch}
+                  min={1}
+                  max={20}
+                  onChange={(e) =>
+                    setNextBatchSize(Math.max(1, Math.min(20, Number(e.target.value) || 1)))
+                  }
+                  aria-label="Turns for next batch"
+                />
+                <div className={styles.batchLabel}>Turns</div>
+              </div>
+            </div>
+
+            <div className={styles.actionButtons}>
+              <button type="button" className={styles.btnPrimary} onClick={handleSendAndContinue}>
+                {userMessage.trim() ? "Send & Continue" : "Continue"}
+              </button>
+              <button type="button" className={styles.btnJudge} onClick={handleSendToJudge}>
+                {userMessage.trim() ? "Send to Judge" : "Skip to Judge"}
+              </button>
+              {userMessage.trim() && (
+                <>
+                  <button type="button" className={styles.btnSecondary} onClick={handleSkipAndContinue}>
+                    Skip & Continue
+                  </button>
+                  <button type="button" className={styles.btnSecondary} onClick={handleSkipToJudge}>
+                    Skip & Send to Judge
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (phase === "judging" && isRunning) {
+      return (
+        <div className={styles.controlBar}>
+          <div className={styles.phaseIndicator}>
+            <div className={styles.phaseSpinner} aria-hidden />
+            <span>Judge is analyzing the deliberation...</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (phase === "voting" && isRunning) {
+      const voteCount = session.votes?.length ?? 0;
+      const totalModels = session.settings.selectedModelIds.length;
+      return (
+        <div className={styles.controlBar}>
+          <div className={styles.phaseIndicator}>
+            <div className={styles.phaseSpinner} aria-hidden />
+            <span>Models are voting... ({voteCount}/{totalModels})</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (phase === "voting" && !isRunning && session.judgeSolutions && !session.votes) {
+      return (
+        <div className={styles.controlBar}>
+          <button type="button" className={styles.btnPrimary} onClick={handleStartVoting}>
+            Start Voting
+          </button>
+        </div>
+      );
+    }
+
+    if (phase === "complete") {
+      return (
+        <div className={styles.controlBar}>
+          <div className={styles.completeBar}>
+            <span className={styles.completeBadge}>Deliberation Complete</span>
+            <Link href="/deliberation" className={styles.newDeliberationLink}>
+              Start New Deliberation
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <div className="synapse-root">
+      <div className="ambient-orb ambient-orb-violet" aria-hidden />
+      <div className="ambient-orb ambient-orb-cyan" aria-hidden />
+
+      <NavPill variant="app" />
+
+      <main className="main-shell">
+        <section className={styles.workspaceGrid}>
+          <DeliberationHistoryPanel
+            sessions={deliberations}
+            activeSessionId={id}
+            onDeleteSession={handleDeleteSession}
+          />
+
+          <div className={styles.chatContainer}>
+            <div className={styles.chatHeader}>
+              <h2 title={session.question}>{session.question}</h2>
+              <div className={styles.chatMeta}>
+                <span>{session.settings.selectedModelIds.length} models</span>
+                <span>Phase: {session.phase}</span>
+              </div>
+            </div>
+
+            <div className={styles.messageList}>
+              {session.messages.length === 0 && !isRunning && (
+                <div className={styles.emptyState}>
+                  <p>Waiting for deliberation to begin...</p>
+                </div>
+              )}
+              {session.messages.length === 0 && isRunning && (
+                <div className={styles.emptyState}>
+                  <div className={styles.phaseSpinner} aria-hidden />
+                  <p>Starting deliberation...</p>
+                </div>
+              )}
+
+              {session.messages.map(renderMessage)}
+
+              <div ref={messageEndRef} />
+            </div>
+
+            {/* Solution cards after judging */}
+            {session.judgeSolutions && session.judgeSolutions.length > 0 && (
+              <div className={styles.solutionsSection}>
+                <h3 className={styles.solutionsTitle}>Proposed Solutions</h3>
+                <div className={styles.solutionsGrid}>
+                  {session.judgeSolutions.map((solution) => (
+                    <div
+                      key={solution.id}
+                      className={`${styles.solutionCard} ${
+                        winningSolutionId === solution.id ? styles.solutionCardWinner : ""
+                      }`}
+                    >
+                      <span className={styles.solutionLabel}>{solution.label}</span>
+                      <p className={styles.solutionDescription}>{solution.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Vote results */}
+            {session.votes && session.votes.length > 0 && (
+              <div className={styles.votingSection}>
+                <h3 className={styles.votingTitle}>Voting Results</h3>
+                <div className={styles.voteTally}>
+                  {voteTally.map(({ solution, count }) => (
+                    <div
+                      key={solution.id}
+                      className={`${styles.tallyItem} ${
+                        winningSolutionId === solution.id ? styles.tallyItemWinner : ""
+                      }`}
+                    >
+                      <span className={styles.tallyLabel}>{solution.label}</span>
+                      <span className={styles.tallyCount}>
+                        {count} vote{count !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className={styles.votesGrid}>
+                  {session.votes.map((vote) => {
+                    const solution = session.judgeSolutions?.find(
+                      (s) => s.id === vote.chosenSolutionId
+                    );
+                    return (
+                      <div key={vote.modelId} className={styles.voteCard}>
+                        <div className={styles.voteCardHeader}>
+                          <span
+                            className={styles.voteCardDot}
+                            style={{ backgroundColor: vote.color }}
+                            aria-hidden
+                          />
+                          <span className={styles.voteCardModel}>{vote.modelName}</span>
+                          <span className={styles.voteCardChoice}>
+                            {solution?.label ?? "?"}
+                          </span>
+                        </div>
+                        <p className={styles.voteCardReasoning}>{vote.reasoning}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {renderControls()}
+          </div>
+        </section>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}

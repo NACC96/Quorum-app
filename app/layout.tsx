@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Instrument_Serif, Inter } from "next/font/google";
 import "@/app/globals.css";
 import { SessionsProvider } from "@/lib/sessions-context";
+import { DeliberationProvider } from "@/lib/deliberation-context";
 
 const serif = Instrument_Serif({
   subsets: ["latin"],
@@ -27,7 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${serif.variable} ${inter.variable}`} suppressHydrationWarning>
-        <SessionsProvider>{children}</SessionsProvider>
+        <SessionsProvider>
+          <DeliberationProvider>{children}</DeliberationProvider>
+        </SessionsProvider>
       </body>
     </html>
   );

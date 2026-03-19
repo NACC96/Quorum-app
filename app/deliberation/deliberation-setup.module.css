@@ -1,0 +1,393 @@
+.setupContainer {
+  margin-top: 48px;
+  max-width: 780px;
+  margin-left: auto;
+  margin-right: auto;
+  display: grid;
+  gap: 14px;
+}
+
+.setupHeader {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(16px);
+  padding: 20px;
+}
+
+.setupTitle {
+  margin: 0;
+  font-family: var(--font-serif), "Instrument Serif", serif;
+  font-size: clamp(1.8rem, 3.2vw, 2.4rem);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.setupCopy {
+  margin: 10px 0 0;
+  color: rgba(224, 224, 224, 0.72);
+  line-height: 1.6;
+}
+
+.setupMetrics {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.setupMetrics span {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 6px 10px;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(228, 228, 228, 0.8);
+}
+
+.stickyStepHeader {
+  position: sticky;
+  top: 96px;
+  z-index: 10;
+  padding: 8px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 10, 10, 0.84);
+  backdrop-filter: blur(14px);
+}
+
+.stepSurface {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background: rgba(10, 10, 10, 0.72);
+  backdrop-filter: blur(18px);
+  padding: 20px;
+}
+
+.stepContent {
+  display: grid;
+  gap: 14px;
+}
+
+.fieldBlock {
+  display: grid;
+  gap: 8px;
+}
+
+.fieldLabel {
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(228, 228, 228, 0.64);
+}
+
+.stepSurface textarea,
+.stepSurface select,
+.stepSurface input[type="search"] {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #fff;
+  padding: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.stepSurface input[type="number"] {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #fff;
+  padding: 12px;
+  line-height: 1.5;
+}
+
+.inlineHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stepperControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stepperButton {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.stepperButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.stepperValue {
+  min-width: 26px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.slotGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.slotCard {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.slotCardFilled {
+  border-color: rgba(6, 182, 212, 0.34);
+  background: rgba(6, 182, 212, 0.08);
+}
+
+.slotCardEmpty {
+  border-style: dashed;
+}
+
+.slotSelect {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.slotDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.slotInfo {
+  display: grid;
+  gap: 2px;
+}
+
+.slotInfo strong {
+  font-size: 0.9rem;
+}
+
+.slotInfo small {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(222, 222, 222, 0.62);
+}
+
+.slotPlaceholder {
+  color: rgba(220, 220, 220, 0.7);
+  font-size: 0.82rem;
+}
+
+.slotControls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.effortSelect,
+.judgeEffortSelect {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 6px 9px;
+}
+
+.archetypeSelect {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 6px 9px;
+  flex: 1;
+  min-width: 0;
+}
+
+.judgeRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.judgeSummary {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.judgeSummary p {
+  margin: 0;
+  color: rgba(231, 231, 231, 0.8);
+  font-size: 0.88rem;
+}
+
+.turnsHint {
+  margin: 4px 0 0;
+  color: rgba(220, 220, 220, 0.58);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.stepHint {
+  margin: 0;
+  color: rgba(220, 220, 220, 0.66);
+  font-size: 0.82rem;
+}
+
+.reviewGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.reviewCard {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+}
+
+.reviewCard h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-serif), "Instrument Serif", serif;
+  font-size: 1.15rem;
+  font-weight: 400;
+}
+
+.reviewCard p {
+  margin: 0;
+  color: rgba(232, 232, 232, 0.82);
+  line-height: 1.6;
+  font-size: 0.87rem;
+}
+
+.reviewContext {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.reviewCard ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.reviewCard li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: rgba(232, 232, 232, 0.84);
+}
+
+.reviewCard li small {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(208, 208, 208, 0.6);
+}
+
+.errorText {
+  margin: 0;
+  color: rgba(248, 113, 113, 0.95);
+}
+
+.actionBar {
+  position: sticky;
+  bottom: 10px;
+  z-index: 12;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(8, 8, 8, 0.86);
+  backdrop-filter: blur(14px);
+  padding: 10px;
+}
+
+.primaryAction,
+.secondaryAction {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondaryAction {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(232, 232, 232, 0.9);
+}
+
+.secondaryAction:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.primaryAction {
+  margin-left: auto;
+  background: linear-gradient(110deg, rgba(139, 92, 246, 0.92), rgba(6, 182, 212, 0.92));
+  color: #fff;
+  min-width: 170px;
+}
+
+.primaryAction:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
+.loadingFallback {
+  margin-top: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background: rgba(10, 10, 10, 0.72);
+  padding: 24px;
+  color: rgba(225, 225, 225, 0.76);
+}
+
+@media (max-width: 860px) {
+  .reviewGrid,
+  .slotGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .judgeRow {
+    grid-template-columns: 1fr;
+  }
+}
