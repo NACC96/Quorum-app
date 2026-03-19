@@ -119,8 +119,34 @@
   color: rgba(52, 211, 153, 0.9);
 }
 
-.deleteButton {
+.itemActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
   margin-top: 8px;
+}
+
+.rerunButton {
+  display: inline-block;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(139, 92, 246, 0.08);
+  color: rgba(196, 167, 255, 0.9);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  text-decoration: none;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.rerunButton:hover {
+  background: rgba(139, 92, 246, 0.16);
+}
+
+.deleteButton {
   width: 100%;
   border: 0;
   border-radius: 8px;

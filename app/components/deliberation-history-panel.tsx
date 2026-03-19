@@ -100,14 +100,22 @@ export default function DeliberationHistoryPanel({
                   </span>
                 </Link>
 
-                <button
-                  type="button"
-                  className={styles.deleteButton}
-                  onClick={() => requestDelete(session.id)}
-                  aria-label={`Delete ${displayTitle}`}
-                >
-                  Delete
-                </button>
+                <div className={styles.itemActions}>
+                  <Link
+                    href={`/deliberation?from=${session.id}`}
+                    className={styles.rerunButton}
+                  >
+                    Re-run
+                  </Link>
+                  <button
+                    type="button"
+                    className={styles.deleteButton}
+                    onClick={() => requestDelete(session.id)}
+                    aria-label={`Delete ${displayTitle}`}
+                  >
+                    Delete
+                  </button>
+                </div>
               </li>
             );
           })}

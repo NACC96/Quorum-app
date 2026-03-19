@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   DEFAULT_COUNCIL,
   DEFAULT_JUDGE,
@@ -83,13 +83,65 @@ function getStepIndex(step: SetupStepId): number {
 
 export default function DeliberationSetupClient(): React.JSX.Element {
   const router = useRouter();
-  const { deliberations, addDeliberation, removeDeliberation } = useDeliberationContext();
+  const { deliberations, addDeliberation, removeDeliberation, getDeliberation } = useDeliberationContext();
+  const searchParams = useSearchParams();
+  const fromSessionId = searchParams.get("from");
 
-  const [draft, setDraft] = useState<DeliberationDraft>(INITIAL_DRAFT);
+  const initialDraft = useMemo<DeliberationDraft>(() => {
+    if (!fromSessionId) {
+      return INITIAL_DRAFT;
+    }
+
+    const source = getDeliberation(fromSessionId);
+    if (!source) {
+      return INITIAL_DRAFT;
+    }
+
+    const modelIds = source.settings.selectedModelIds;
+    const effortMap: Record<number, ReasoningEffort> = {};
+
+    if (source.settings.reasoningEffortMap) {
+      modelIds.forEach((modelId, index) => {
+        const effort = source.settings.reasoningEffortMap?.[modelId];
+        if (effort) {
+          effortMap[index] = effort;
+        }
+      });
+    }
+
+    const archetypeMap: Record<number, string | null> = {};
+    if (source.settings.archetypeMap) {
+      for (const [key, value] of Object.entries(source.settings.archetypeMap)) {
+        archetypeMap[Number(key)] = value;
+      }
+    }
+
+    return {
+      question: source.question,
+      context: source.context,
+      councilSize: modelIds.length,
+      councilSlots: [...modelIds],
+      councilReasoningEfforts: effortMap,
+      councilArchetypeMap: archetypeMap,
+      judgeModelId: source.settings.judgeModelId,
+      judgeReasoningEffort: source.settings.judgeReasoningEffort ?? DEFAULT_REASONING_EFFORT,
+      judgeArchetypeId: source.settings.judgeArchetypeId ?? null,
+      turnsPerBatch: source.settings.turnsPerBatch,
+    };
+  }, [fromSessionId, getDeliberation]);
+
+  const [draft, setDraft] = useState<DeliberationDraft>(initialDraft);
   const [currentStep, setCurrentStep] = useState<SetupStepId>("prompt");
   const [completedSteps, setCompletedSteps] = useState<SetupStepId[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [pickerSlotIndex, setPickerSlotIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    setDraft(initialDraft);
+    setCurrentStep("prompt");
+    setCompletedSteps([]);
+    setErrorMessage("");
+  }, [initialDraft]);
 
   const currentStepIndex = getStepIndex(currentStep);
 
