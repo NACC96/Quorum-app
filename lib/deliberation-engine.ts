@@ -238,7 +238,7 @@ export function addUserMessage(
 // --- Execute a batch of deliberation turns ---
 
 export interface BatchCallbacks {
-  onTurnStart: (modelId: string, turnNumber: number) => void;
+  onTurnStart: (modelId: string, turnNumber: number, pendingMessage: DeliberationMessage) => void;
   onChunk: (content: string) => void;
   onTurnComplete: (message: DeliberationMessage) => void;
   onBatchComplete: (session: DeliberationSession) => void;
@@ -262,8 +262,6 @@ export async function executeDeliberationBatch(
     const model = getModelById(modelId);
     if (!model) continue;
 
-    callbacks.onTurnStart(modelId, turnIndex);
-
     const pendingMessage: DeliberationMessage = {
       id: createId(),
       role: "model",
@@ -274,6 +272,8 @@ export async function executeDeliberationBatch(
       timestamp: new Date().toISOString(),
       status: "streaming",
     };
+
+    callbacks.onTurnStart(modelId, turnIndex, pendingMessage);
 
     workingSession = {
       ...workingSession,
@@ -292,16 +292,20 @@ export async function executeDeliberationBatch(
     const started = Date.now();
 
     try {
+      let accumulated = "";
       const fullContent = await callModelStreaming(
         modelId,
         inputMessages,
         {
-          onChunk: (chunk) => callbacks.onChunk(chunk),
+          onChunk: (chunk) => {
+            accumulated += chunk;
+            callbacks.onChunk(chunk);
+          },
           onComplete: (usage) => {
             const latencyMs = Date.now() - started;
             const completedMessage: DeliberationMessage = {
               ...pendingMessage,
-              content: fullContent,
+              content: accumulated,
               tokenCount: usage.totalTokens,
               promptTokens: usage.promptTokens,
               completionTokens: usage.completionTokens,
@@ -374,6 +378,7 @@ export async function executeDeliberationBatch(
 // --- Judge phase ---
 
 export interface JudgeCallbacks {
+  onStart: (pendingMessage: DeliberationMessage) => void;
   onChunk: (content: string) => void;
   onComplete: (solutions: JudgeSolution[]) => void;
 }
@@ -426,6 +431,8 @@ export async function executeJudgePhase(
     timestamp: new Date().toISOString(),
     status: "streaming",
   };
+
+  callbacks.onStart(judgeMessage);
 
   workingSession = {
     ...workingSession,

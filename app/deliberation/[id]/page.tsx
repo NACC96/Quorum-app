@@ -89,8 +89,15 @@ export default function DeliberationChatPage(): React.JSX.Element {
     setSession(working);
 
     const callbacks: BatchCallbacks = {
-      onTurnStart: (_modelId, _turnNumber) => {
-        // The engine adds a pending message — we re-render via onChunk/onTurnComplete
+      onTurnStart: (_modelId, turnNumber, pendingMessage) => {
+        setSession((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            currentTurn: turnNumber,
+            messages: [...prev.messages, pendingMessage],
+          };
+        });
       },
       onChunk: (chunk) => {
         setSession((prev) => {
@@ -142,6 +149,12 @@ export default function DeliberationChatPage(): React.JSX.Element {
       const result = await executeJudgePhase(
         working,
         {
+          onStart: (pendingMessage) => {
+            setSession((prev) => {
+              if (!prev) return prev;
+              return { ...prev, messages: [...prev.messages, pendingMessage] };
+            });
+          },
           onChunk: (chunk) => {
             setSession((prev) => {
               if (!prev) return prev;
