@@ -214,12 +214,13 @@ export const MODEL_OPTIONS: ModelOption[] = [
 ];
 
 export const DEFAULT_COUNCIL = [
-  "anthropic/claude-sonnet-4.6",
-  "openai/gpt-5.3-codex",
-  "google/gemini-3.1-pro-preview"
+  "nous/Hermes-4-405B",
+  "x-ai/grok-4.20-beta",
+  "openai/gpt-5.4-mini",
+  "nvidia/nemotron-3-super-120b-a12b:free"
 ];
 
-export const DEFAULT_JUDGE = "anthropic/claude-sonnet-4.6";
+export const DEFAULT_JUDGE = "x-ai/grok-4.20-beta";
 export const DEFAULT_SUMMARY_MODEL = DEFAULT_JUDGE;
 
 export const REASONING_EFFORT_OPTIONS: { label: string; value: ReasoningEffort }[] = [
