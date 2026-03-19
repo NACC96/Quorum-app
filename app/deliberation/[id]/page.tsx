@@ -20,6 +20,7 @@ import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import NavPill from "@/app/components/nav-pill";
 import Footer from "@/app/components/footer";
 import DeliberationHistoryPanel from "@/app/components/deliberation-history-panel";
+import SolutionModal from "@/app/components/solution-modal";
 import styles from "@/app/deliberation/[id]/deliberation-chat.module.css";
 
 export default function DeliberationChatPage(): React.JSX.Element {
@@ -35,6 +36,7 @@ export default function DeliberationChatPage(): React.JSX.Element {
   const [isRunning, setIsRunning] = useState(false);
   const [userMessage, setUserMessage] = useState("");
   const [nextBatchSize, setNextBatchSize] = useState<number | null>(null);
+  const [selectedSolutionId, setSelectedSolutionId] = useState<string | null>(null);
 
   const messageEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -647,74 +649,111 @@ export default function DeliberationChatPage(): React.JSX.Element {
 
               {session.messages.map(renderMessage)}
 
-              <div ref={messageEndRef} />
-            </div>
-
-            {/* Solution cards after judging */}
-            {session.judgeSolutions && session.judgeSolutions.length > 0 && (
-              <div className={styles.solutionsSection}>
-                <h3 className={styles.solutionsTitle}>Proposed Solutions</h3>
-                <div className={styles.solutionsGrid}>
-                  {session.judgeSolutions.map((solution) => (
-                    <div
-                      key={solution.id}
-                      className={`${styles.solutionCard} ${
-                        winningSolutionId === solution.id ? styles.solutionCardWinner : ""
-                      }`}
-                    >
-                      <span className={styles.solutionLabel}>{solution.label}</span>
-                      <p className={styles.solutionDescription}>{solution.description}</p>
-                    </div>
-                  ))}
+              {/* Compact solution pills (inside scroll area) */}
+              {session.judgeSolutions && session.judgeSolutions.length > 0 && (
+                <div className={styles.solutionsSection}>
+                  <h3 className={styles.solutionsTitle}>Proposed Solutions</h3>
+                  <div className={styles.solutionPills}>
+                    {session.judgeSolutions.map((solution) => {
+                      const voteCount = session.votes
+                        ? session.votes.filter((v) => v.chosenSolutionId === solution.id).length
+                        : 0;
+                      const isWinner = winningSolutionId === solution.id;
+                      return (
+                        <button
+                          key={solution.id}
+                          type="button"
+                          className={`${styles.solutionPill} ${isWinner ? styles.solutionPillWinner : ""}`}
+                          onClick={() => setSelectedSolutionId(solution.id)}
+                        >
+                          <span className={`${styles.solutionLabel} ${isWinner ? styles.solutionLabelWinner : ""}`}>
+                            {solution.label}
+                          </span>
+                          <span className={styles.solutionSnippet}>
+                            {solution.description.length > 80
+                              ? solution.description.slice(0, 80) + "..."
+                              : solution.description}
+                          </span>
+                          {session.votes && session.votes.length > 0 && (
+                            <span className={`${styles.solutionVotes} ${isWinner ? styles.solutionVotesWinner : ""}`}>
+                              {voteCount}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Vote results */}
-            {session.votes && session.votes.length > 0 && (
-              <div className={styles.votingSection}>
-                <h3 className={styles.votingTitle}>Voting Results</h3>
-                <div className={styles.voteTally}>
-                  {voteTally.map(({ solution, count }) => (
-                    <div
-                      key={solution.id}
-                      className={`${styles.tallyItem} ${
-                        winningSolutionId === solution.id ? styles.tallyItemWinner : ""
-                      }`}
-                    >
-                      <span className={styles.tallyLabel}>{solution.label}</span>
-                      <span className={styles.tallyCount}>
-                        {count} vote{count !== 1 ? "s" : ""}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+              {/* Compact voting results (inside scroll area) */}
+              {session.votes && session.votes.length > 0 && (
+                <div className={styles.votingSection}>
+                  <h3 className={styles.votingTitle}>Voting Results</h3>
+                  <div className={styles.voteTally}>
+                    {voteTally.map(({ solution, count }) => (
+                      <button
+                        key={solution.id}
+                        type="button"
+                        className={`${styles.tallyItem} ${
+                          winningSolutionId === solution.id ? styles.tallyItemWinner : ""
+                        }`}
+                        onClick={() => setSelectedSolutionId(solution.id)}
+                      >
+                        <span className={styles.tallyLabel}>{solution.label}</span>
+                        <span className={styles.tallyCount}>
+                          {count} vote{count !== 1 ? "s" : ""}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
 
-                <div className={styles.votesGrid}>
-                  {session.votes.map((vote) => {
-                    const solution = session.judgeSolutions?.find(
-                      (s) => s.id === vote.chosenSolutionId
-                    );
-                    return (
-                      <div key={vote.modelId} className={styles.voteCard}>
-                        <div className={styles.voteCardHeader}>
+                  <div className={styles.voteRows}>
+                    {session.votes.map((vote) => {
+                      const solution = session.judgeSolutions?.find(
+                        (s) => s.id === vote.chosenSolutionId
+                      );
+                      return (
+                        <button
+                          key={vote.modelId}
+                          type="button"
+                          className={styles.voteRow}
+                          onClick={() => solution && setSelectedSolutionId(solution.id)}
+                        >
                           <span
-                            className={styles.voteCardDot}
+                            className={styles.voteRowDot}
                             style={{ backgroundColor: vote.color }}
                             aria-hidden
                           />
-                          <span className={styles.voteCardModel}>{vote.modelName}</span>
-                          <span className={styles.voteCardChoice}>
+                          <span className={styles.voteRowModel}>{vote.modelName}</span>
+                          <span className={styles.voteRowChoice}>
                             {solution?.label ?? "?"}
                           </span>
-                        </div>
-                        <p className={styles.voteCardReasoning}>{vote.reasoning}</p>
-                      </div>
-                    );
-                  })}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              <div ref={messageEndRef} />
+            </div>
+
+            {/* Solution detail modal */}
+            {selectedSolutionId && session.judgeSolutions && (() => {
+              const solution = session.judgeSolutions.find((s) => s.id === selectedSolutionId);
+              if (!solution) return null;
+              return (
+                <SolutionModal
+                  solution={solution}
+                  allSolutions={session.judgeSolutions}
+                  votes={session.votes ?? []}
+                  winningSolutionId={winningSolutionId}
+                  onClose={() => setSelectedSolutionId(null)}
+                  onNavigate={(id) => setSelectedSolutionId(id)}
+                />
+              );
+            })()}
 
             {renderControls()}
           </div>

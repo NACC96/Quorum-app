@@ -442,96 +442,143 @@
   cursor: not-allowed;
 }
 
-/* ---- Solution Cards ---- */
+/* ---- Compact Solution Pills ---- */
 
 .solutionsSection {
-  padding: 0 20px 14px;
+  padding: 4px 0;
 }
 
 .solutionsTitle {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   font-family: var(--font-serif), "Instrument Serif", serif;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 400;
   color: rgba(251, 191, 36, 0.9);
 }
 
-.solutionsGrid {
-  display: grid;
-  gap: 10px;
+.solutionPills {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.solutionCard {
-  border: 1px solid rgba(251, 191, 36, 0.18);
-  border-radius: 14px;
-  background: rgba(251, 191, 36, 0.04);
-  padding: 12px 14px;
+.solutionPill {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.14);
+  background: rgba(251, 191, 36, 0.03);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.solutionPill:hover {
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.07);
+}
+
+.solutionPillWinner {
+  border-color: rgba(52, 211, 153, 0.3);
+  background: rgba(52, 211, 153, 0.04);
+}
+
+.solutionPillWinner:hover {
+  border-color: rgba(52, 211, 153, 0.5);
+  background: rgba(52, 211, 153, 0.08);
 }
 
 .solutionLabel {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   background: rgba(251, 191, 36, 0.18);
   color: rgba(255, 236, 179, 0.95);
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   flex-shrink: 0;
 }
 
-.solutionDescription {
-  margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.55;
-  color: rgba(239, 239, 239, 0.88);
-}
-
-.solutionCardWinner {
-  border-color: rgba(52, 211, 153, 0.4);
-  background: rgba(52, 211, 153, 0.06);
-  box-shadow: 0 0 20px -8px rgba(52, 211, 153, 0.35);
-}
-
-.solutionCardWinner .solutionLabel {
+.solutionLabelWinner {
   background: rgba(52, 211, 153, 0.22);
   color: rgba(167, 243, 208, 0.95);
 }
 
-/* ---- Vote Cards ---- */
+.solutionSnippet {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: rgba(220, 220, 220, 0.78);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.solutionVotes {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(220, 220, 220, 0.6);
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.solutionVotesWinner {
+  background: rgba(52, 211, 153, 0.15);
+  color: rgba(167, 243, 208, 0.9);
+}
+
+/* ---- Compact Vote Results ---- */
 
 .votingSection {
-  padding: 0 20px 14px;
+  padding: 4px 0;
 }
 
 .votingTitle {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   font-family: var(--font-serif), "Instrument Serif", serif;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 400;
 }
 
 .voteTally {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
 .tallyItem {
   border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 10px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
-  padding: 8px 12px;
+  padding: 6px 10px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.82rem;
+  gap: 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.tallyItem:hover {
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.06);
 }
 
 .tallyLabel {
@@ -540,58 +587,59 @@
 }
 
 .tallyCount {
-  color: rgba(220, 220, 220, 0.8);
+  color: rgba(220, 220, 220, 0.7);
 }
 
 .tallyItemWinner {
-  border-color: rgba(52, 211, 153, 0.4);
-  background: rgba(52, 211, 153, 0.08);
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(52, 211, 153, 0.06);
 }
 
-.votesGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 10px;
+.voteRows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.voteCard {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.02);
-  padding: 12px 14px;
-}
-
-.voteCardHeader {
+.voteRow {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 6px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.015);
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.voteCardDot {
-  width: 8px;
-  height: 8px;
+.voteRow:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.voteRowDot {
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
   flex-shrink: 0;
 }
 
-.voteCardModel {
+.voteRowModel {
   font-size: 0.78rem;
   font-weight: 600;
+  flex: 1;
+  min-width: 0;
 }
 
-.voteCardChoice {
+.voteRowChoice {
   font-size: 0.72rem;
   font-weight: 700;
-  color: rgba(251, 191, 36, 0.9);
-  margin-left: auto;
-}
-
-.voteCardReasoning {
-  margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.5;
-  color: rgba(220, 220, 220, 0.75);
+  color: rgba(251, 191, 36, 0.85);
+  flex-shrink: 0;
 }
 
 /* ---- Complete phase ---- */
@@ -673,8 +721,3 @@
   }
 }
 
-@media (max-width: 860px) {
-  .votesGrid {
-    grid-template-columns: 1fr;
-  }
-}
