@@ -1,8 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Session } from "@/lib/types";
-import { deleteSession, loadSessions, saveSessions, upsertSession } from "@/lib/storage";
 
 interface SessionsContextValue {
   sessions: Session[];
@@ -15,37 +14,67 @@ interface SessionsContextValue {
 
 const SessionsContext = createContext<SessionsContextValue | null>(null);
 
+function upsertLocal(prev: Session[], incoming: Session): Session[] {
+  const idx = prev.findIndex((s) => s.id === incoming.id);
+  if (idx === -1) return [incoming, ...prev];
+  const next = [...prev];
+  next[idx] = incoming;
+  return next.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+}
+
 export function SessionsProvider({ children }: { children: React.ReactNode }) {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const loaded = useRef(false);
 
   useEffect(() => {
-    setSessions(loadSessions());
+    if (loaded.current) return;
+    loaded.current = true;
+    fetch("/api/sessions")
+      .then((r) => r.json())
+      .then((data: Session[]) => setSessions(data))
+      .catch(console.error);
   }, []);
 
-  useEffect(() => {
-    if (sessions.length > 0 || loadSessions().length > 0) {
-      saveSessions(sessions);
-    }
-  }, [sessions]);
-
-  const addSession = useCallback((session: Session) => {
-    setSessions((prev) => upsertSession(prev, session));
+  const persist = useCallback((session: Session) => {
+    fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(session),
+    }).catch(console.error);
   }, []);
 
-  const updateSession = useCallback((session: Session) => {
-    setSessions((prev) => upsertSession(prev, session));
-  }, []);
+  const addSession = useCallback(
+    (session: Session) => {
+      setSessions((prev) => upsertLocal(prev, session));
+      persist(session);
+    },
+    [persist]
+  );
 
-  const patchSession = useCallback((id: string, patcher: (session: Session) => Session) => {
-    setSessions((prev) => {
-      const existing = prev.find((s) => s.id === id);
-      if (!existing) return prev;
-      return upsertSession(prev, patcher(existing));
-    });
-  }, []);
+  const updateSession = useCallback(
+    (session: Session) => {
+      setSessions((prev) => upsertLocal(prev, session));
+      persist(session);
+    },
+    [persist]
+  );
+
+  const patchSession = useCallback(
+    (id: string, patcher: (session: Session) => Session) => {
+      setSessions((prev) => {
+        const existing = prev.find((s) => s.id === id);
+        if (!existing) return prev;
+        const patched = patcher(existing);
+        persist(patched);
+        return upsertLocal(prev, patched);
+      });
+    },
+    [persist]
+  );
 
   const removeSession = useCallback((id: string) => {
-    setSessions((prev) => deleteSession(prev, id));
+    setSessions((prev) => prev.filter((s) => s.id !== id));
+    fetch(`/api/sessions/${id}`, { method: "DELETE" }).catch(console.error);
   }, []);
 
   const getSession = useCallback(

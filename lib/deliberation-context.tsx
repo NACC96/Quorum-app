@@ -1,13 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { DeliberationSession } from "@/lib/types";
-import {
-  deleteDeliberation,
-  loadDeliberations,
-  saveDeliberations,
-  upsertDeliberation
-} from "@/lib/deliberation-storage";
 
 interface DeliberationContextValue {
   deliberations: DeliberationSession[];
@@ -20,40 +14,67 @@ interface DeliberationContextValue {
 
 const DeliberationContext = createContext<DeliberationContextValue | null>(null);
 
+function upsertLocal(prev: DeliberationSession[], incoming: DeliberationSession): DeliberationSession[] {
+  const idx = prev.findIndex((s) => s.id === incoming.id);
+  if (idx === -1) return [incoming, ...prev];
+  const next = [...prev];
+  next[idx] = incoming;
+  return next.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+}
+
 export function DeliberationProvider({ children }: { children: React.ReactNode }) {
   const [deliberations, setDeliberations] = useState<DeliberationSession[]>([]);
+  const loaded = useRef(false);
 
   useEffect(() => {
-    setDeliberations(loadDeliberations());
+    if (loaded.current) return;
+    loaded.current = true;
+    fetch("/api/deliberations")
+      .then((r) => r.json())
+      .then((data: DeliberationSession[]) => setDeliberations(data))
+      .catch(console.error);
   }, []);
 
-  useEffect(() => {
-    if (deliberations.length > 0 || loadDeliberations().length > 0) {
-      saveDeliberations(deliberations);
-    }
-  }, [deliberations]);
-
-  const addDeliberation = useCallback((session: DeliberationSession) => {
-    setDeliberations((prev) => upsertDeliberation(prev, session));
+  const persist = useCallback((session: DeliberationSession) => {
+    fetch("/api/deliberations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(session),
+    }).catch(console.error);
   }, []);
 
-  const updateDeliberation = useCallback((session: DeliberationSession) => {
-    setDeliberations((prev) => upsertDeliberation(prev, session));
-  }, []);
+  const addDeliberation = useCallback(
+    (session: DeliberationSession) => {
+      setDeliberations((prev) => upsertLocal(prev, session));
+      persist(session);
+    },
+    [persist]
+  );
+
+  const updateDeliberation = useCallback(
+    (session: DeliberationSession) => {
+      setDeliberations((prev) => upsertLocal(prev, session));
+      persist(session);
+    },
+    [persist]
+  );
 
   const patchDeliberation = useCallback(
     (id: string, patcher: (session: DeliberationSession) => DeliberationSession) => {
       setDeliberations((prev) => {
         const existing = prev.find((s) => s.id === id);
         if (!existing) return prev;
-        return upsertDeliberation(prev, patcher(existing));
+        const patched = patcher(existing);
+        persist(patched);
+        return upsertLocal(prev, patched);
       });
     },
-    []
+    [persist]
   );
 
   const removeDeliberation = useCallback((id: string) => {
-    setDeliberations((prev) => deleteDeliberation(prev, id));
+    setDeliberations((prev) => prev.filter((s) => s.id !== id));
+    fetch(`/api/deliberations/${id}`, { method: "DELETE" }).catch(console.error);
   }, []);
 
   const getDeliberation = useCallback(
