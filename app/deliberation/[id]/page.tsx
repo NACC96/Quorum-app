@@ -13,6 +13,10 @@ import {
 } from "@/lib/deliberation-engine";
 import { formatUsd, msToSeconds } from "@/lib/format";
 import { DeliberationMessage, DeliberationSession, JudgeSolution, ModelVote } from "@/lib/types";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import NavPill from "@/app/components/nav-pill";
 import Footer from "@/app/components/footer";
 import DeliberationHistoryPanel from "@/app/components/deliberation-history-panel";
@@ -322,7 +326,36 @@ export default function DeliberationChatPage(): React.JSX.Element {
           <div className={styles.messageHeader}>
             <span className={styles.messageName}>You</span>
           </div>
-          <p className={styles.messageContent}>{msg.content}</p>
+          <div className={styles.messageContent}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                code({ className, children, ...props }) {
+                  const match = /language-(\w+)/.exec(className || "");
+                  const inline = !match && !String(children).includes("\n");
+                  return inline ? (
+                    <code className={styles.inlineCode} {...props}>{children}</code>
+                  ) : (
+                    <SyntaxHighlighter
+                      style={oneDark}
+                      language={match?.[1] || "text"}
+                      PreTag="div"
+                      customStyle={{
+                        borderRadius: "10px",
+                        fontSize: "0.85rem",
+                        margin: "0.75rem 0",
+                        padding: "0.85rem",
+                      }}
+                    >
+                      {String(children).replace(/\n$/, "")}
+                    </SyntaxHighlighter>
+                  );
+                },
+              }}
+            >
+              {msg.content || ""}
+            </ReactMarkdown>
+          </div>
         </div>
       );
     }
@@ -338,10 +371,37 @@ export default function DeliberationChatPage(): React.JSX.Element {
             />
             <span className={styles.messageName}>Judge: {msg.modelName}</span>
           </div>
-          <p className={styles.messageContent}>
-            {msg.content}
+          <div className={styles.messageContent}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                code({ className, children, ...props }) {
+                  const match = /language-(\w+)/.exec(className || "");
+                  const inline = !match && !String(children).includes("\n");
+                  return inline ? (
+                    <code className={styles.inlineCode} {...props}>{children}</code>
+                  ) : (
+                    <SyntaxHighlighter
+                      style={oneDark}
+                      language={match?.[1] || "text"}
+                      PreTag="div"
+                      customStyle={{
+                        borderRadius: "10px",
+                        fontSize: "0.85rem",
+                        margin: "0.75rem 0",
+                        padding: "0.85rem",
+                      }}
+                    >
+                      {String(children).replace(/\n$/, "")}
+                    </SyntaxHighlighter>
+                  );
+                },
+              }}
+            >
+              {msg.content || ""}
+            </ReactMarkdown>
             {msg.status === "streaming" && <span className={styles.streamingCursor} />}
-          </p>
+          </div>
           {msg.status === "error" && (
             <p className={styles.messageErrorText}>{msg.error ?? "Judge execution failed."}</p>
           )}
@@ -387,10 +447,37 @@ export default function DeliberationChatPage(): React.JSX.Element {
           />
           <span className={styles.messageName}>{msg.modelName ?? "Model"}</span>
         </div>
-        <p className={styles.messageContent}>
-          {msg.content}
+        <div className={styles.messageContent}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              code({ className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || "");
+                const inline = !match && !String(children).includes("\n");
+                return inline ? (
+                  <code className={styles.inlineCode} {...props}>{children}</code>
+                ) : (
+                  <SyntaxHighlighter
+                    style={oneDark}
+                    language={match?.[1] || "text"}
+                    PreTag="div"
+                    customStyle={{
+                      borderRadius: "10px",
+                      fontSize: "0.85rem",
+                      margin: "0.75rem 0",
+                      padding: "0.85rem",
+                    }}
+                  >
+                    {String(children).replace(/\n$/, "")}
+                  </SyntaxHighlighter>
+                );
+              },
+            }}
+          >
+            {msg.content || ""}
+          </ReactMarkdown>
           {msg.status === "streaming" && <span className={styles.streamingCursor} />}
-        </p>
+        </div>
         {msg.status === "complete" && (
           <div className={styles.messageMetrics}>
             {msg.tokenCount != null && msg.tokenCount > 0 && <span>{msg.tokenCount} tok</span>}
