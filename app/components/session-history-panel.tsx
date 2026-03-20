@@ -1,27 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSessionsContext } from "@/lib/sessions-context";
+import { HistorySkeleton } from "@/components/skeleton-loader";
 import Link from "next/link";
-import { Session } from "@/lib/types";
 import styles from "@/app/components/session-history-panel.module.css";
 
 export interface SessionHistoryPanelProps {
-  sessions: Session[];
   activeSessionId?: string;
-  onDeleteSession: (sessionId: string) => void;
-  getSessionHref?: (sessionId: string) => string;
-  title?: string;
 }
 
 const MOBILE_BREAKPOINT_QUERY = "(max-width: 1140px)";
 
 export default function SessionHistoryPanel({
-  sessions,
-  activeSessionId,
-  onDeleteSession,
-  getSessionHref = (sessionId) => `/session/${sessionId}`,
-  title = "Sessions"
+  activeSessionId
 }: SessionHistoryPanelProps): React.JSX.Element {
+  const { sessions, loading, error, removeSession } = useSessionsContext();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
@@ -44,15 +38,73 @@ export default function SessionHistoryPanel({
   const requestDelete = (sessionId: string) => {
     const didConfirm = window.confirm("Delete this session? This cannot be undone.");
     if (didConfirm) {
-      onDeleteSession(sessionId);
+      removeSession(sessionId);
     }
   };
+
+  if (loading) {
+    return (
+      <aside className={styles.panel}>
+        <header className={styles.header}>
+          <div>
+            <h2 className={styles.title}>Sessions</h2>
+            <p className={styles.count}>Loading...</p>
+          </div>
+
+          <button
+            type="button"
+            className={styles.toggleButton}
+            onClick={() => setIsCollapsed((previous) => !previous)}
+            aria-expanded={!isCollapsed}
+            aria-label={isCollapsed ? "Expand sessions list" : "Collapse sessions list"}
+          >
+            {isCollapsed ? "Show" : "Hide"}
+          </button>
+        </header>
+
+        {!isCollapsed && (
+          <div className={styles.list}>
+            <HistorySkeleton />
+          </div>
+        )}
+      </aside>
+    );
+  }
+
+  if (error) {
+    return (
+      <aside className={styles.panel}>
+        <header className={styles.header}>
+          <div>
+            <h2 className={styles.title}>Sessions</h2>
+            <p className={styles.count}>Error loading sessions</p>
+          </div>
+
+          <button
+            type="button"
+            className={styles.toggleButton}
+            onClick={() => setIsCollapsed((previous) => !previous)}
+            aria-expanded={!isCollapsed}
+            aria-label={isCollapsed ? "Expand sessions list" : "Collapse sessions list"}
+          >
+            {isCollapsed ? "Show" : "Hide"}
+          </button>
+        </header>
+
+        {!isCollapsed && (
+          <div className={styles.list}>
+            <p className={styles.empty}>Error: {error.message}</p>
+          </div>
+        )}
+      </aside>
+    );
+  }
 
   return (
     <aside className={styles.panel}>
       <header className={styles.header}>
         <div>
-          <h2 className={styles.title}>{title}</h2>
+          <h2 className={styles.title}>Sessions</h2>
           <p className={styles.count}>{sessions.length} total</p>
         </div>
 
@@ -80,7 +132,7 @@ export default function SessionHistoryPanel({
                 key={session.id}
                 className={`${styles.item} ${isActive ? styles.itemActive : ""}`}
               >
-                <Link href={getSessionHref(session.id)} className={styles.itemLink}>
+                <Link href={`/session/${session.id}`} className={styles.itemLink}>
                   <span className={styles.itemQuestion} title={displayTitle}>
                     {displayTitle}
                   </span>

@@ -10,3 +10,4 @@ pnpm-debug.log*
 .vercel
 .env*.local
 .intent
+.next_stale_*

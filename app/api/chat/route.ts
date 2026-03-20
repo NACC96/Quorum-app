@@ -403,10 +403,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const requestId = createRequestId();
 
   try {
-    const body = (await request.json()) as RequestBody;
+    let body: RequestBody;
+    try {
+      body = (await request.json()) as RequestBody;
+    } catch {
+      return errorResponse(400, "Invalid JSON payload.", requestId);
+    }
 
-    if (!body.model || !Array.isArray(body.messages) || body.messages.length === 0) {
-      return errorResponse(400, "Invalid payload. Expected model and non-empty messages.", requestId);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return errorResponse(400, "Invalid JSON payload. Expected an object.", requestId);
+    }
+
+    if (!body.model || typeof body.model !== "string") {
+      return errorResponse(400, "Invalid payload. 'model' must be a non-empty string.", requestId);
+    }
+
+    if (!Array.isArray(body.messages) || body.messages.length === 0) {
+      return errorResponse(400, "Invalid payload. 'messages' must be a non-empty array.", requestId);
+    }
+
+    for (const msg of body.messages) {
+      if (!msg || (msg.role !== "system" && msg.role !== "user" && msg.role !== "assistant")) {
+        return errorResponse(400, "Invalid message role. Expected 'system', 'user', or 'assistant'.", requestId);
+      }
+      if (typeof msg.content !== "string") {
+        return errorResponse(400, "Invalid message. 'content' must be a string.", requestId);
+      }
     }
 
     const temperature = body.temperature ?? 0.7;

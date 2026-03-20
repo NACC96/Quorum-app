@@ -42,6 +42,21 @@ export default function DeliberationChatPage(): React.JSX.Element {
   const messageEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const autoStarted = useRef(false);
+  const sessionWasPresent = useRef(false);
+
+  const contextSession = getDeliberation(id);
+
+  useEffect(() => {
+    if (contextSession) {
+      sessionWasPresent.current = true;
+    }
+  }, [contextSession]);
+
+  useEffect(() => {
+    if (!contextSession && sessionWasPresent.current) {
+      router.push("/deliberation");
+    }
+  }, [contextSession, router]);
 
   // Load session from context
   useEffect(() => {
@@ -258,13 +273,6 @@ export default function DeliberationChatPage(): React.JSX.Element {
   const handleStartVoting = () => {
     if (!session) return;
     runVoting(session);
-  };
-
-  const handleDeleteSession = (sessionId: string) => {
-    removeDeliberation(sessionId);
-    if (sessionId === id) {
-      router.push("/deliberation");
-    }
   };
 
   // ---- Computed values ----
@@ -625,11 +633,7 @@ export default function DeliberationChatPage(): React.JSX.Element {
 
       <main className="main-shell">
         <section className={styles.workspaceGrid}>
-          <DeliberationHistoryPanel
-            sessions={deliberations}
-            activeSessionId={id}
-            onDeleteSession={handleDeleteSession}
-          />
+          <DeliberationHistoryPanel activeSessionId={id} />
 
           <div className={styles.chatContainer}>
             <div className={styles.chatHeader}>

@@ -401,7 +401,7 @@ export default function CouncilPageClient(): React.JSX.Element {
 
       <main className="main-shell">
         <section className={styles.workspaceGrid}>
-          <SessionHistoryPanel sessions={sessions} onDeleteSession={removeSession} />
+          <SessionHistoryPanel />
 
           <div className={styles.setupMain}>
             <header className={styles.setupHeader}>

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getIronSession } from "iron-session";
-import { MutableRequestCookiesAdapter } from "next/dist/server/web/spec-extension/adapters/request-cookies";
 import { SessionData, sessionOptions } from "@/lib/session";
 
 export async function middleware(request: NextRequest) {
@@ -15,21 +14,34 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/council")) {
-    const session = await getIronSession<SessionData>(
-      MutableRequestCookiesAdapter.wrap(request.cookies),
-      sessionOptions
-    );
+  const session = await getIronSession<SessionData>(
+    request.cookies as any,
+    sessionOptions()
+  );
 
-    if (!session.userId) {
-      const loginUrl = new URL("/login", request.url);
-      return NextResponse.redirect(loginUrl);
+  if (!session.userId) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Authentication required." },
+        { status: 401 }
+      );
     }
+
+    const loginUrl = new URL("/login", request.url);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/council/:path*"],
+  matcher: [
+    "/council/:path*",
+    "/session/:path*",
+    "/deliberation/:path*",
+    "/api/sessions/:path*",
+    "/api/deliberations/:path*",
+    "/api/chat/:path*",
+    "/api/chat-stream/:path*",
+  ],
 };

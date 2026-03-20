@@ -36,8 +36,21 @@ export default function SessionPage(): React.JSX.Element {
   const [retryingRoundId, setRetryingRoundId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const executionStarted = useRef(false);
+  const sessionWasPresent = useRef(false);
 
   const session = getSession(id);
+
+  useEffect(() => {
+    if (session) {
+      sessionWasPresent.current = true;
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (!session && sessionWasPresent.current) {
+      router.push("/council");
+    }
+  }, [session, router]);
   const summaryEnabled = Boolean(session?.settings.summaryEnabled);
 
   const costSummary = useMemo(
@@ -167,14 +180,6 @@ export default function SessionPage(): React.JSX.Element {
     }
   };
 
-  const handleDeleteSession = (sessionId: string) => {
-    removeSession(sessionId);
-
-    if (sessionId === id) {
-      router.push("/council");
-    }
-  };
-
   const renderResponseError = (
     response: {
       error?: string;
@@ -226,11 +231,7 @@ export default function SessionPage(): React.JSX.Element {
 
       <main className="main-shell">
         <section className={styles.workspaceGrid}>
-          <SessionHistoryPanel
-            sessions={sessions}
-            activeSessionId={id}
-            onDeleteSession={handleDeleteSession}
-          />
+          <SessionHistoryPanel activeSessionId={id} />
 
           <div className={styles.mainColumn}>
             <section className={styles.summaryCard}>

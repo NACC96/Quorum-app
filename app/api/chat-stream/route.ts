@@ -331,14 +331,21 @@ export async function POST(request: NextRequest): Promise<Response> {
     return sseErrorResponse("Invalid JSON payload.");
   }
 
-  if (
-    !body.model ||
-    !Array.isArray(body.messages) ||
-    body.messages.length === 0
-  ) {
-    return sseErrorResponse(
-      "Invalid payload. Expected model and non-empty messages."
-    );
+  if (!body.model || typeof body.model !== "string") {
+    return sseErrorResponse("Invalid payload. 'model' must be a non-empty string.");
+  }
+
+  if (!Array.isArray(body.messages) || body.messages.length === 0) {
+    return sseErrorResponse("Invalid payload. 'messages' must be a non-empty array.");
+  }
+
+  for (const msg of body.messages) {
+    if (!msg || (msg.role !== "system" && msg.role !== "user" && msg.role !== "assistant")) {
+      return sseErrorResponse("Invalid message role. Expected 'system', 'user', or 'assistant'.");
+    }
+    if (typeof msg.content !== "string") {
+      return sseErrorResponse("Invalid message. 'content' must be a string.");
+    }
   }
 
   const model = body.model;
