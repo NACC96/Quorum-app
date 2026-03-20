@@ -25,7 +25,7 @@ export async function middleware(request: NextRequest) {
   ) {
     const session = await getIronSession<SessionData>(
       await cookies(),
-      sessionOptions
+      sessionOptions()
     );
 
     if (!session.userId) {
