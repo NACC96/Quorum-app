@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDeliberationContext } from "@/lib/deliberation-context";
+import { HistorySkeleton } from "@/components/skeleton-loader";
 import Link from "next/link";
-import { DeliberationSession } from "@/lib/types";
 import styles from "@/app/components/deliberation-history-panel.module.css";
 
 export interface DeliberationHistoryPanelProps {
-  sessions: DeliberationSession[];
   activeSessionId?: string;
-  onDeleteSession: (sessionId: string) => void;
 }
 
 const MOBILE_BREAKPOINT_QUERY = "(max-width: 1140px)";
@@ -22,10 +21,9 @@ const PHASE_LABELS: Record<string, string> = {
 };
 
 export default function DeliberationHistoryPanel({
-  sessions,
-  activeSessionId,
-  onDeleteSession,
+  activeSessionId
 }: DeliberationHistoryPanelProps): React.JSX.Element {
+  const { deliberations, loading, error, removeDeliberation } = useDeliberationContext();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
@@ -48,16 +46,74 @@ export default function DeliberationHistoryPanel({
   const requestDelete = (sessionId: string) => {
     const didConfirm = window.confirm("Delete this deliberation? This cannot be undone.");
     if (didConfirm) {
-      onDeleteSession(sessionId);
+      removeDeliberation(sessionId);
     }
   };
+
+  if (loading) {
+    return (
+      <aside className={styles.panel}>
+        <header className={styles.header}>
+          <div>
+            <h2 className={styles.title}>Deliberations</h2>
+            <p className={styles.count}>Loading...</p>
+          </div>
+
+          <button
+            type="button"
+            className={styles.toggleButton}
+            onClick={() => setIsCollapsed((previous) => !previous)}
+            aria-expanded={!isCollapsed}
+            aria-label={isCollapsed ? "Expand deliberations list" : "Collapse deliberations list"}
+          >
+            {isCollapsed ? "Show" : "Hide"}
+          </button>
+        </header>
+
+        {!isCollapsed && (
+          <div className={styles.list}>
+            <HistorySkeleton />
+          </div>
+        )}
+      </aside>
+    );
+  }
+
+  if (error) {
+    return (
+      <aside className={styles.panel}>
+        <header className={styles.header}>
+          <div>
+            <h2 className={styles.title}>Deliberations</h2>
+            <p className={styles.count}>Error loading deliberations</p>
+          </div>
+
+          <button
+            type="button"
+            className={styles.toggleButton}
+            onClick={() => setIsCollapsed((previous) => !previous)}
+            aria-expanded={!isCollapsed}
+            aria-label={isCollapsed ? "Expand deliberations list" : "Collapse deliberations list"}
+          >
+            {isCollapsed ? "Show" : "Hide"}
+          </button>
+        </header>
+
+        {!isCollapsed && (
+          <div className={styles.list}>
+            <p className={styles.empty}>Error: {error.message}</p>
+          </div>
+        )}
+      </aside>
+    );
+  }
 
   return (
     <aside className={styles.panel}>
       <header className={styles.header}>
         <div>
           <h2 className={styles.title}>Deliberations</h2>
-          <p className={styles.count}>{sessions.length} total</p>
+          <p className={styles.count}>{deliberations.length} total</p>
         </div>
 
         <button
@@ -73,9 +129,9 @@ export default function DeliberationHistoryPanel({
 
       {!isCollapsed && (
         <ul className={styles.list}>
-          {sessions.length === 0 && <li className={styles.empty}>No deliberations yet.</li>}
+          {deliberations.length === 0 && <li className={styles.empty}>No deliberations yet.</li>}
 
-          {sessions.map((session) => {
+          {deliberations.map((session) => {
             const isActive = session.id === activeSessionId;
             const displayTitle = session.title ?? session.question;
 

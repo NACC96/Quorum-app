@@ -625,11 +625,7 @@ export default function DeliberationChatPage(): React.JSX.Element {
 
       <main className="main-shell">
         <section className={styles.workspaceGrid}>
-          <DeliberationHistoryPanel
-            sessions={deliberations}
-            activeSessionId={id}
-            onDeleteSession={handleDeleteSession}
-          />
+          <DeliberationHistoryPanel activeSessionId={id} />
 
           <div className={styles.chatContainer}>
             <div className={styles.chatHeader}>

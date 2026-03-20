@@ -352,10 +352,7 @@ export default function DeliberationSetupClient(): React.JSX.Element {
 
       <main className="main-shell">
         <div className={styles.pageGrid}>
-          <DeliberationHistoryPanel
-            sessions={deliberations}
-            onDeleteSession={removeDeliberation}
-          />
+          <DeliberationHistoryPanel />
 
           <div className={styles.setupContainer}>
           <header className={styles.setupHeader}>

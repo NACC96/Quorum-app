@@ -15,7 +15,20 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session: Session = await request.json();
+  let session: Session;
+  try {
+    session = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
+  }
+
+  if (!session.id || typeof session.id !== "string") {
+    return NextResponse.json({ error: "Session 'id' is required." }, { status: 400 });
+  }
+
+  if (!session.question || typeof session.question !== "string") {
+    return NextResponse.json({ error: "Session 'question' is required." }, { status: 400 });
+  }
 
   await db
     .insert(councilSessions)

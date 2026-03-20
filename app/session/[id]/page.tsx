@@ -226,11 +226,7 @@ export default function SessionPage(): React.JSX.Element {
 
       <main className="main-shell">
         <section className={styles.workspaceGrid}>
-          <SessionHistoryPanel
-            sessions={sessions}
-            activeSessionId={id}
-            onDeleteSession={handleDeleteSession}
-          />
+          <SessionHistoryPanel activeSessionId={id} />
 
           <div className={styles.mainColumn}>
             <section className={styles.summaryCard}>
