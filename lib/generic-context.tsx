@@ -41,6 +41,7 @@ export function createGenericContext<T>() {
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<Error | null>(null);
     const loaded = useRef(false);
+    const latestItemsRef = useRef<T[]>([]);
 
     useEffect(() => {
       if (loaded.current) return;
@@ -54,6 +55,7 @@ export function createGenericContext<T>() {
           return r.json();
         })
         .then((data: T[]) => {
+          latestItemsRef.current = data;
           setItems(data);
           setLoading(false);
         })
@@ -64,28 +66,46 @@ export function createGenericContext<T>() {
         });
     }, [apiEndpoint]);
 
-    const persist = useCallback((item: T) => {
-      fetch(apiEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
-      }).catch(console.error);
-    }, [apiEndpoint]);
+    const persist = useCallback(
+      async (item: T): Promise<boolean> => {
+        try {
+          const res = await fetch(apiEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(item),
+          });
+          if (!res.ok) {
+            throw new Error(`Persist failed: ${res.status}`);
+          }
+          return true;
+        } catch (err) {
+          setError(err instanceof Error ? err : new Error(String(err)));
+          return false;
+        }
+      },
+      [apiEndpoint]
+    );
 
-    const addItem = useCallback(
+    const upsertItem = useCallback(
       (item: T) => {
-        setItems((prev) => upsertLocal(prev, item, idKey));
+        setItems((prev) => {
+          const next = upsertLocal(prev, item, idKey);
+          latestItemsRef.current = next;
+          return next;
+        });
         persist(item);
       },
       [persist, idKey]
     );
 
+    const addItem = useCallback(
+      (item: T) => upsertItem(item),
+      [upsertItem]
+    );
+
     const updateItem = useCallback(
-      (item: T) => {
-        setItems((prev) => upsertLocal(prev, item, idKey));
-        persist(item);
-      },
-      [persist, idKey]
+      (item: T) => upsertItem(item),
+      [upsertItem]
     );
 
     const patchItem = useCallback(
@@ -95,21 +115,35 @@ export function createGenericContext<T>() {
           const existing = prev.find((item) => item[idKey] === id);
           if (!existing) return prev;
           patchedItem = patcher(existing);
-          return upsertLocal(prev, patchedItem, idKey);
+          const next = upsertLocal(prev, patchedItem, idKey);
+          latestItemsRef.current = next;
+          return next;
         });
         if (patchedItem) persist(patchedItem);
       },
       [persist, idKey]
     );
 
-    const removeItem = useCallback((id: string) => {
-      setItems((prev) => prev.filter((item) => item[idKey] !== id));
-      fetch(`${apiEndpoint}/${id}`, { method: "DELETE" }).catch(console.error);
-    }, [apiEndpoint, idKey]);
+    const removeItem = useCallback(
+      (id: string) => {
+        const previousItems = latestItemsRef.current;
+        setItems((prev) => {
+          const next = prev.filter((item) => item[idKey] !== id);
+          latestItemsRef.current = next;
+          return next;
+        });
+        fetch(`${apiEndpoint}/${id}`, { method: "DELETE" }).catch((err) => {
+          latestItemsRef.current = previousItems;
+          setItems(previousItems);
+          setError(err instanceof Error ? err : new Error(String(err)));
+        });
+      },
+      [apiEndpoint, idKey]
+    );
 
     const getItem = useCallback(
-      (id: string) => items.find((item) => item[idKey] === id),
-      [items, idKey]
+      (id: string) => latestItemsRef.current.find((item) => item[idKey] === id),
+      [idKey]
     );
 
     return (
