@@ -52,5 +52,6 @@ export const config = {
     "/api/sessions/:path*",
     "/api/deliberations/:path*",
     "/api/chat/:path*",
+    "/api/chat-stream/:path*",
   ],
 };

@@ -410,6 +410,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return errorResponse(400, "Invalid JSON payload.", requestId);
     }
 
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return errorResponse(400, "Invalid JSON payload. Expected an object.", requestId);
+    }
+
     if (!body.model || typeof body.model !== "string") {
       return errorResponse(400, "Invalid payload. 'model' must be a non-empty string.", requestId);
     }

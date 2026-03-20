@@ -1,18 +1,21 @@
 "use client";
 
-import { GenericProvider, useGenericContext } from "./generic-context";
+import { createGenericContext } from "./generic-context";
 import type { Session } from "@/lib/types";
+
+const { Provider: GenericSessionsProvider, useGenericContext: useGenericSessionsContext } =
+  createGenericContext<Session>();
 
 export function SessionsProvider({ children }: { children: React.ReactNode }) {
   return (
-    <GenericProvider<Session, "id"> apiEndpoint="/api/sessions" idKey="id">
+    <GenericSessionsProvider apiEndpoint="/api/sessions" idKey="id">
       {children}
-    </GenericProvider>
+    </GenericSessionsProvider>
   );
 }
 
 export function useSessionsContext() {
-  const ctx = useGenericContext<Session>();
+  const ctx = useGenericSessionsContext();
   return {
     sessions: ctx.items,
     loading: ctx.loading,

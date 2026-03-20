@@ -42,6 +42,19 @@ export default function DeliberationChatPage(): React.JSX.Element {
   const messageEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const autoStarted = useRef(false);
+  const sessionWasPresent = useRef(false);
+
+  const contextSession = getDeliberation(id);
+
+  if (contextSession) {
+    sessionWasPresent.current = true;
+  }
+
+  useEffect(() => {
+    if (!contextSession && sessionWasPresent.current) {
+      router.push("/deliberation");
+    }
+  }, [contextSession, router]);
 
   // Load session from context
   useEffect(() => {

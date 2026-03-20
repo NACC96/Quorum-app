@@ -339,6 +339,15 @@ export async function POST(request: NextRequest): Promise<Response> {
     return sseErrorResponse("Invalid payload. 'messages' must be a non-empty array.");
   }
 
+  for (const msg of body.messages) {
+    if (!msg || (msg.role !== "system" && msg.role !== "user" && msg.role !== "assistant")) {
+      return sseErrorResponse("Invalid message role. Expected 'system', 'user', or 'assistant'.");
+    }
+    if (typeof msg.content !== "string") {
+      return sseErrorResponse("Invalid message. 'content' must be a string.");
+    }
+  }
+
   const model = body.model;
   const temperature = body.temperature ?? 0.7;
   const maxTokens = body.maxTokens ?? 65536;

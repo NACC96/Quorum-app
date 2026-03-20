@@ -1,18 +1,21 @@
 "use client";
 
-import { GenericProvider, useGenericContext } from "./generic-context";
+import { createGenericContext } from "./generic-context";
 import type { DeliberationSession } from "@/lib/types";
+
+const { Provider: GenericDeliberationProvider, useGenericContext: useGenericDeliberationContext } =
+  createGenericContext<DeliberationSession>();
 
 export function DeliberationProvider({ children }: { children: React.ReactNode }) {
   return (
-    <GenericProvider<DeliberationSession, "id"> apiEndpoint="/api/deliberations" idKey="id">
+    <GenericDeliberationProvider apiEndpoint="/api/deliberations" idKey="id">
       {children}
-    </GenericProvider>
+    </GenericDeliberationProvider>
   );
 }
 
 export function useDeliberationContext() {
-  const ctx = useGenericContext<DeliberationSession>();
+  const ctx = useGenericDeliberationContext();
   return {
     deliberations: ctx.items,
     loading: ctx.loading,

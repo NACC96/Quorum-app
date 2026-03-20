@@ -36,8 +36,19 @@ export default function SessionPage(): React.JSX.Element {
   const [retryingRoundId, setRetryingRoundId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const executionStarted = useRef(false);
+  const sessionWasPresent = useRef(false);
 
   const session = getSession(id);
+
+  if (session) {
+    sessionWasPresent.current = true;
+  }
+
+  useEffect(() => {
+    if (!session && sessionWasPresent.current) {
+      router.push("/council");
+    }
+  }, [session, router]);
   const summaryEnabled = Boolean(session?.settings.summaryEnabled);
 
   const costSummary = useMemo(
