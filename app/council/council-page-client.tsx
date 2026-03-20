@@ -19,6 +19,7 @@ import { DraftState, ReasoningEffort } from "@/lib/types";
 import { getAllArchetypes, Archetype } from "@/lib/archetypes";
 import { useSessionsContext } from "@/lib/sessions-context";
 import { createId } from "@/lib/council-engine";
+import { generateCouncilAliases } from "@/lib/alias-generator";
 import { getEstimatedModelCallCount, getExpectedRoundCount } from "@/lib/format";
 import NavPill from "@/app/components/nav-pill";
 import Footer from "@/app/components/footer";
@@ -307,7 +308,9 @@ export default function CouncilPageClient(): React.JSX.Element {
     setPickerSlotIndex(null);
   };
 
-  const handleConvene = () => {
+  const [isStarting, setIsStarting] = useState(false);
+
+  const handleConvene = async () => {
     setErrorMessage("");
 
     if (!isPromptStepValid) {
@@ -343,6 +346,8 @@ export default function CouncilPageClient(): React.JSX.Element {
       return;
     }
 
+    setIsStarting(true);
+
     const reasoningEffortMap: Record<string, ReasoningEffort> = {};
     for (let index = 0; index < selectedModelIds.length; index += 1) {
       reasoningEffortMap[selectedModelIds[index]] =
@@ -358,6 +363,8 @@ export default function CouncilPageClient(): React.JSX.Element {
         archetypeMap[index] = archetypeId;
       }
     }
+
+    const aliasMap = await generateCouncilAliases(selectedModelIds);
 
     addSession({
       id: sessionId,
@@ -375,6 +382,7 @@ export default function CouncilPageClient(): React.JSX.Element {
         archetypeMap: Object.keys(archetypeMap).length > 0 ? archetypeMap : undefined,
         judgeArchetypeId: draft.judgeArchetypeId ?? undefined
       },
+      aliasMap,
       status: "running",
       rounds: [],
       createdAt: new Date().toISOString(),
@@ -843,9 +851,9 @@ export default function CouncilPageClient(): React.JSX.Element {
                   type="button"
                   className={styles.primaryAction}
                   onClick={handleConvene}
-                  disabled={!canRun}
+                  disabled={!canRun || isStarting}
                 >
-                  Convene Council
+                  {isStarting ? "Generating aliases..." : "Convene Council"}
                 </button>
               ) : (
                 <button type="button" className={styles.primaryAction} onClick={handleNextStep}>

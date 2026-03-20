@@ -134,7 +134,8 @@ export function createRound(
   roundNumber: number,
   type: RoundType,
   models: ModelOption[],
-  options: RoundCreationOptions = {}
+  options: RoundCreationOptions = {},
+  aliasMap?: Record<string, string>
 ): Round {
   return {
     id: createId(),
@@ -149,7 +150,7 @@ export function createRound(
     responses: models.map((model) => ({
       id: `${roundNumber}-${model.id}`,
       modelId: model.id,
-      modelName: model.name,
+      modelName: aliasMap?.[model.id] ?? model.name,
       provider: model.provider,
       color: model.color,
       content: "",
@@ -416,7 +417,7 @@ async function runSummaryRound(
   persistFull(nextSession);
 
   const started = Date.now();
-  const prompt = buildSummaryPrompt(nextSession.question, nextSession.context, sourceRound);
+  const prompt = buildSummaryPrompt(nextSession.question, nextSession.context, sourceRound, nextSession.aliasMap);
   const inputMessages: ModelInputMessage[] = [
     { role: "system", content: prompt.system },
     { role: "user", content: prompt.user }
@@ -482,7 +483,7 @@ async function runJudgmentRound(
   persistFull(nextSession);
 
   const started = Date.now();
-  const prompt = buildJudgmentPrompt(nextSession.question, nextSession.context, judge, sourceRounds, getJudgeArchetypeSnippet(nextSession));
+  const prompt = buildJudgmentPrompt(nextSession.question, nextSession.context, judge, sourceRounds, getJudgeArchetypeSnippet(nextSession), nextSession.aliasMap);
   const inputMessages: ModelInputMessage[] = [
     { role: "system", content: prompt.system },
     { role: "user", content: prompt.user }
@@ -544,14 +545,14 @@ async function appendIndependentRound(
   persistPatch: (patcher: (session: Session) => Session) => void,
   onRoundActivated?: (roundId: string) => void
 ): Promise<Session> {
-  const independentRound = createRound(getNextRoundNumber(workingSession), "independent", councilModels);
+  const independentRound = createRound(getNextRoundNumber(workingSession), "independent", councilModels, {}, workingSession.aliasMap);
   const nextSession = appendRoundToSession(workingSession, independentRound, persistFull, onRoundActivated);
 
   return runParticipantRound(
     nextSession,
     independentRound,
     councilModels,
-    (model) => buildIndependentPrompt(nextSession.question, nextSession.context, model, getArchetypeSnippet(nextSession, model.id)),
+    (model) => buildIndependentPrompt(nextSession.question, nextSession.context, model, getArchetypeSnippet(nextSession, model.id), nextSession.aliasMap),
     persistFull,
     persistPatch
   );
@@ -570,7 +571,8 @@ async function appendDeliberationRound(
     getNextRoundNumber(workingSession),
     "deliberation",
     councilModels,
-    { deliberationIndex }
+    { deliberationIndex },
+    workingSession.aliasMap
   );
   const nextSession = appendRoundToSession(workingSession, deliberationRound, persistFull, onRoundActivated);
 
@@ -585,7 +587,8 @@ async function appendDeliberationRound(
         model,
         priorRound,
         deliberationIndex,
-        getArchetypeSnippet(nextSession, model.id)
+        getArchetypeSnippet(nextSession, model.id),
+        nextSession.aliasMap
       ),
     persistFull,
     persistPatch
@@ -607,7 +610,8 @@ async function appendSummaryRound(
       summarySourceRoundId: sourceRound.id,
       summarySourceRoundType: sourceRound.type === "deliberation" ? "deliberation" : "independent",
       summarySourceDeliberationIndex: sourceRound.type === "deliberation" ? sourceRound.deliberationIndex : undefined
-    }
+    },
+    workingSession.aliasMap
   );
   const nextSession = appendRoundToSession(workingSession, summaryRound, persistFull, onRoundActivated);
 
@@ -620,7 +624,7 @@ async function appendJudgmentRound(
   persistFull: (session: Session) => void,
   onRoundActivated?: (roundId: string) => void
 ): Promise<Session> {
-  const judgmentRound = createRound(getNextRoundNumber(workingSession), "judgment", [judge]);
+  const judgmentRound = createRound(getNextRoundNumber(workingSession), "judgment", [judge], {}, workingSession.aliasMap);
   const nextSession = appendRoundToSession(workingSession, judgmentRound, persistFull, onRoundActivated);
 
   return runJudgmentRound(
@@ -922,7 +926,7 @@ export async function retryFailedModelsForRound(
       workingSession,
       refreshedRound,
       retryModels,
-      (model) => buildIndependentPrompt(workingSession.question, workingSession.context, model, getArchetypeSnippet(workingSession, model.id)),
+      (model) => buildIndependentPrompt(workingSession.question, workingSession.context, model, getArchetypeSnippet(workingSession, model.id), workingSession.aliasMap),
       persistFull,
       persistPatch
     );
@@ -944,7 +948,8 @@ export async function retryFailedModelsForRound(
         model,
         priorRound,
         refreshedRound.deliberationIndex ?? 1,
-        getArchetypeSnippet(workingSession, model.id)
+        getArchetypeSnippet(workingSession, model.id),
+        workingSession.aliasMap
       ),
     persistFull,
     persistPatch

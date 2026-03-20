@@ -13,6 +13,7 @@ import {
 } from "@/lib/deliberation-engine";
 import { formatUsd, msToSeconds } from "@/lib/format";
 import { DeliberationMessage, DeliberationSession, JudgeSolution, ModelVote } from "@/lib/types";
+import { getModelById } from "@/lib/models";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -321,6 +322,11 @@ export default function DeliberationChatPage(): React.JSX.Element {
 
   // ---- Render helpers ----
 
+  const getRealModelName = (modelId: string | undefined): string | undefined => {
+    if (!modelId || !session.aliasMap?.[modelId]) return undefined;
+    return getModelById(modelId)?.name;
+  };
+
   const renderMessage = (msg: DeliberationMessage) => {
     if (msg.role === "user") {
       return (
@@ -371,7 +377,7 @@ export default function DeliberationChatPage(): React.JSX.Element {
               style={{ backgroundColor: msg.color ?? "#fbbf24" }}
               aria-hidden
             />
-            <span className={styles.messageName}>Judge: {msg.modelName}</span>
+            <span className={styles.messageName} title={getRealModelName(msg.modelId)}>Judge: {msg.modelName}</span>
           </div>
           <div className={styles.messageContent}>
             <ReactMarkdown
@@ -427,7 +433,7 @@ export default function DeliberationChatPage(): React.JSX.Element {
               style={{ backgroundColor: msg.color ?? "#f87171" }}
               aria-hidden
             />
-            <span className={styles.messageName}>{msg.modelName ?? "Model"}</span>
+            <span className={styles.messageName} title={getRealModelName(msg.modelId)}>{msg.modelName ?? "Model"}</span>
           </div>
           <p className={styles.messageErrorText}>{msg.error ?? "Model execution failed."}</p>
         </div>
@@ -447,7 +453,7 @@ export default function DeliberationChatPage(): React.JSX.Element {
             style={{ backgroundColor: msg.color ?? "#8b5cf6" }}
             aria-hidden
           />
-          <span className={styles.messageName}>{msg.modelName ?? "Model"}</span>
+          <span className={styles.messageName} title={getRealModelName(msg.modelId)}>{msg.modelName ?? "Model"}</span>
         </div>
         <div className={styles.messageContent}>
           <ReactMarkdown
@@ -725,7 +731,7 @@ export default function DeliberationChatPage(): React.JSX.Element {
                             style={{ backgroundColor: vote.color }}
                             aria-hidden
                           />
-                          <span className={styles.voteRowModel}>{vote.modelName}</span>
+                          <span className={styles.voteRowModel} title={getRealModelName(vote.modelId)}>{vote.modelName}</span>
                           <span className={styles.voteRowChoice}>
                             {solution?.label ?? "?"}
                           </span>

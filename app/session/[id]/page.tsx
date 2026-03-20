@@ -17,6 +17,7 @@ import {
   modelShortName,
   msToSeconds
 } from "@/lib/format";
+import { getModelById } from "@/lib/models";
 import NavPill from "@/app/components/nav-pill";
 import Footer from "@/app/components/footer";
 import ResponseModal from "@/app/components/response-modal";
@@ -384,7 +385,10 @@ export default function SessionPage(): React.JSX.Element {
                             }
                           >
                             <header className={styles.responseHead}>
-                              <span className={styles.responseModel}>
+                              <span
+                                className={styles.responseModel}
+                                title={session.aliasMap?.[response.modelId] ? getModelById(response.modelId)?.name : undefined}
+                              >
                                 <span
                                   className={styles.responseDot}
                                   style={{ backgroundColor: response.color }}
@@ -478,6 +482,11 @@ export default function SessionPage(): React.JSX.Element {
       <ResponseModal
         response={viewingResponseData?.response ?? null}
         roundType={viewingResponseData?.roundType ?? null}
+        realModelName={
+          viewingResponseData?.response && session.aliasMap?.[viewingResponseData.response.modelId]
+            ? getModelById(viewingResponseData.response.modelId)?.name
+            : undefined
+        }
         onClose={() => setViewingResponseId(null)}
       />
 

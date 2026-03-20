@@ -4,6 +4,10 @@ function renderContext(context: string): string {
   return context.trim() ? context.trim() : "No extra context provided.";
 }
 
+function resolveAlias(model: ModelOption, aliasMap?: Record<string, string>): string {
+  return aliasMap?.[model.id] ?? model.name;
+}
+
 function getRoundTitle(round: Round): string {
   if (round.type === "independent") {
     return "Independent Round";
@@ -24,7 +28,7 @@ function getRoundTitle(round: Round): string {
   return `Deliberation Round ${round.deliberationIndex ?? round.roundNumber - 1}`;
 }
 
-function renderRoundTranscript(round: Round): string {
+function renderRoundTranscript(round: Round, aliasMap?: Record<string, string>): string {
   const roundTitle = getRoundTitle(round);
 
   if (round.type === "summary") {
@@ -34,7 +38,8 @@ function renderRoundTranscript(round: Round): string {
     }
 
     if (summaryResponse.status === "error") {
-      return `${roundTitle}\n- ${summaryResponse.modelName} (${summaryResponse.provider}): ERROR -> ${
+      const name = aliasMap?.[summaryResponse.modelId] ?? summaryResponse.modelName;
+      return `${roundTitle}\n- ${name}: ERROR -> ${
         summaryResponse.error ?? "Unknown error"
       }`;
     }
@@ -44,30 +49,32 @@ function renderRoundTranscript(round: Round): string {
 
   const items = round.responses
     .map((response) => {
+      const name = aliasMap?.[response.modelId] ?? response.modelName;
       if (response.status === "error") {
-        return `- ${response.modelName} (${response.provider}): ERROR -> ${response.error ?? "Unknown error"}`;
+        return `- ${name}: ERROR -> ${response.error ?? "Unknown error"}`;
       }
 
-      return `- ${response.modelName} (${response.provider}):\n${response.content}`;
+      return `- ${name}:\n${response.content}`;
     })
     .join("\n\n");
 
   return `${roundTitle}\n${items}`;
 }
 
-function renderRoundResponsesForSummary(round: Round): string {
+function renderRoundResponsesForSummary(round: Round, aliasMap?: Record<string, string>): string {
   return round.responses
     .map((response) => {
+      const name = aliasMap?.[response.modelId] ?? response.modelName;
       if (response.status === "error") {
         return [
-          `## ${response.modelName} (${response.provider})`,
+          `## ${name}`,
           "Response status: unavailable",
           `Error: ${response.error ?? "Unknown error"}`
         ].join("\n");
       }
 
       return [
-        `## ${response.modelName} (${response.provider})`,
+        `## ${name}`,
         "Response status: complete",
         response.content
       ].join("\n\n");
@@ -75,7 +82,7 @@ function renderRoundResponsesForSummary(round: Round): string {
     .join("\n\n");
 }
 
-function renderOtherResponses(round: Round, currentModelId: string): string {
+function renderOtherResponses(round: Round, currentModelId: string, aliasMap?: Record<string, string>): string {
   const others = round.responses.filter(
     (response) => response.modelId !== currentModelId && response.status === "complete"
   );
@@ -85,14 +92,14 @@ function renderOtherResponses(round: Round, currentModelId: string): string {
   }
 
   return others
-    .map(
-      (response) =>
-        `### ${response.modelName} (${response.provider})\n${response.content}`
-    )
+    .map((response) => {
+      const name = aliasMap?.[response.modelId] ?? response.modelName;
+      return `### ${name}\n${response.content}`;
+    })
     .join("\n\n");
 }
 
-function renderPriorRoundInput(round: Round, currentModelId: string): {
+function renderPriorRoundInput(round: Round, currentModelId: string, aliasMap?: Record<string, string>): {
   label: string;
   content: string;
 } {
@@ -113,7 +120,7 @@ function renderPriorRoundInput(round: Round, currentModelId: string): {
 
   return {
     label: "Peer responses from previous round:",
-    content: renderOtherResponses(round, currentModelId)
+    content: renderOtherResponses(round, currentModelId, aliasMap)
   };
 }
 
@@ -121,8 +128,11 @@ export function buildIndependentPrompt(
   question: string,
   context: string,
   participant: ModelOption,
-  archetypeSnippet?: string
+  archetypeSnippet?: string,
+  aliasMap?: Record<string, string>
 ): { system: string; user: string } {
+  const alias = resolveAlias(participant, aliasMap);
+
   const baseSystem = [
     "You are a council participant in Quorum.",
     "Give a rigorous independent answer.",
@@ -137,7 +147,7 @@ export function buildIndependentPrompt(
     user: [
       `Question:\n${question.trim()}`,
       `Context:\n${renderContext(context)}`,
-      `Participant identity: ${participant.name} (${participant.provider})`
+      `Participant identity: ${alias}`
     ].join("\n\n")
   };
 }
@@ -148,9 +158,11 @@ export function buildDeliberationPrompt(
   participant: ModelOption,
   priorRound: Round,
   deliberationIndex: number,
-  archetypeSnippet?: string
+  archetypeSnippet?: string,
+  aliasMap?: Record<string, string>
 ): { system: string; user: string } {
-  const priorRoundInput = renderPriorRoundInput(priorRound, participant.id);
+  const alias = resolveAlias(participant, aliasMap);
+  const priorRoundInput = renderPriorRoundInput(priorRound, participant.id, aliasMap);
 
   const baseSystem = [
     "You are a council participant in a structured AI deliberation.",
@@ -166,7 +178,7 @@ export function buildDeliberationPrompt(
     user: [
       `Question:\n${question.trim()}`,
       `Context:\n${renderContext(context)}`,
-      `Current model: ${participant.name} (${participant.provider})`,
+      `Current participant: ${alias}`,
       `This is deliberation round ${deliberationIndex}.`,
       priorRoundInput.label,
       priorRoundInput.content
@@ -177,15 +189,16 @@ export function buildDeliberationPrompt(
 export function buildSummaryPrompt(
   question: string,
   context: string,
-  sourceRound: Round
+  sourceRound: Round,
+  aliasMap?: Record<string, string>
 ): { system: string; user: string } {
   return {
     system: [
       "You are the summarizer model in Quorum.",
       "Summarize each participant response from the provided round into a detailed, faithful markdown digest.",
-      "For every source model, output exactly one `## Model Name (Provider)` section.",
-      "Inside each model section include `### Thesis`, `### Key Arguments`, `### Recommendation`, and `### Risks / Blind Spots`.",
-      "Target roughly 150-250 words total per source model.",
+      "For every source participant, output exactly one `## Participant Name` section.",
+      "Inside each section include `### Thesis`, `### Key Arguments`, `### Recommendation`, and `### Risks / Blind Spots`.",
+      "Target roughly 150-250 words total per source participant.",
       "If a source response failed or is unavailable, explicitly say the response was unavailable and do not invent content.",
       "Return markdown only."
     ].join(" "),
@@ -194,7 +207,7 @@ export function buildSummaryPrompt(
       `Context:\n${renderContext(context)}`,
       `Round to summarize:\n${getRoundTitle(sourceRound)}`,
       "Source responses:",
-      renderRoundResponsesForSummary(sourceRound)
+      renderRoundResponsesForSummary(sourceRound, aliasMap)
     ].join("\n\n")
   };
 }
@@ -204,9 +217,11 @@ export function buildJudgmentPrompt(
   context: string,
   judge: ModelOption,
   rounds: Round[],
-  archetypeSnippet?: string
+  archetypeSnippet?: string,
+  aliasMap?: Record<string, string>
 ): { system: string; user: string } {
-  const transcript = rounds.map((round) => renderRoundTranscript(round)).join("\n\n---\n\n");
+  const alias = resolveAlias(judge, aliasMap);
+  const transcript = rounds.map((round) => renderRoundTranscript(round, aliasMap)).join("\n\n---\n\n");
 
   const baseSystem = [
     "You are the judge model in Quorum.",
@@ -222,7 +237,7 @@ export function buildJudgmentPrompt(
     user: [
       `Question:\n${question.trim()}`,
       `Context:\n${renderContext(context)}`,
-      `Judge identity: ${judge.name} (${judge.provider})`,
+      `Judge identity: ${alias}`,
       "Council transcript:",
       transcript
     ].join("\n\n")

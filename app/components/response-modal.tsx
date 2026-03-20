@@ -13,6 +13,7 @@ import styles from "@/app/components/response-modal.module.css";
 interface ResponseModalProps {
   response: ModelResponse | null;
   roundType: RoundType | null;
+  realModelName?: string;
   onClose: () => void;
 }
 
@@ -27,6 +28,7 @@ function focusablesWithin(element: HTMLElement): HTMLElement[] {
 export default function ResponseModal({
   response,
   roundType,
+  realModelName,
   onClose
 }: ResponseModalProps): React.JSX.Element | null {
   const headingId = useId();
@@ -118,9 +120,10 @@ export default function ResponseModal({
     <div className={styles.overlay} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <div ref={dialogRef} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby={headingId}>
         <div className={styles.header}>
-          <h2 id={headingId} className={styles.title}>
+          <h2 id={headingId} className={styles.title} title={realModelName}>
             <span className={styles.responseDot} style={{ backgroundColor: response.color }} aria-hidden />
             {response.modelName}
+            {realModelName && <span style={{ opacity: 0.5, fontSize: "0.75em", marginLeft: "0.5em" }}>({realModelName})</span>}
           </h2>
 
           <span className={styles.meta}>

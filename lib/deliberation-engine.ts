@@ -197,13 +197,15 @@ async function callModelStreaming(
 export function createDeliberationSession(
   question: string,
   context: string,
-  settings: DeliberationSettings
+  settings: DeliberationSettings,
+  aliasMap?: Record<string, string>
 ): DeliberationSession {
   return {
     id: createId(),
     question,
     context,
     settings,
+    aliasMap,
     messages: [],
     phase: "deliberating",
     currentTurn: 0,
@@ -262,11 +264,13 @@ export async function executeDeliberationBatch(
     const model = getModelById(modelId);
     if (!model) continue;
 
+    const alias = workingSession.aliasMap?.[model.id] ?? model.name;
+
     const pendingMessage: DeliberationMessage = {
       id: createId(),
       role: "model",
       modelId: model.id,
-      modelName: model.name,
+      modelName: alias,
       color: model.color,
       content: "",
       timestamp: new Date().toISOString(),
@@ -421,11 +425,13 @@ export async function executeJudgePhase(
     { role: "user", content: prompt.user },
   ];
 
+  const judgeAlias = workingSession.aliasMap?.[judgeModel.id] ?? judgeModel.name;
+
   const judgeMessage: DeliberationMessage = {
     id: createId(),
     role: "judge",
     modelId: judgeModel.id,
-    modelName: judgeModel.name,
+    modelName: judgeAlias,
     color: judgeModel.color,
     content: "",
     timestamp: new Date().toISOString(),
@@ -548,6 +554,7 @@ export async function executeVoting(
   const models = getModelsByIds(modelIds);
 
   const votePromises = models.map(async (model) => {
+    const alias = workingSession.aliasMap?.[model.id] ?? model.name;
     const archetypeSnippet = getArchetypeSnippet(workingSession, model.id);
     const prompt = buildVotePrompt(workingSession, model.id, solutions, archetypeSnippet);
     const inputMessages: ChatMessage[] = [
@@ -582,7 +589,7 @@ export async function executeVoting(
 
       const vote: ModelVote = {
         modelId: model.id,
-        modelName: model.name,
+        modelName: alias,
         color: model.color,
         chosenSolutionId: matchedSolution?.id ?? solutions[0].id,
         reasoning: parsed.reasoning,
@@ -595,7 +602,7 @@ export async function executeVoting(
       // On error, default vote to first solution
       const vote: ModelVote = {
         modelId: model.id,
-        modelName: model.name,
+        modelName: alias,
         color: model.color,
         chosenSolutionId: solutions[0].id,
         reasoning: "Voting failed — defaulted to first option.",

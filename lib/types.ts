@@ -80,6 +80,7 @@ export interface Session {
   question: string;
   context: string;
   settings: SessionSettings;
+  aliasMap?: Record<string, string>;
   status: SessionStatus;
   rounds: Round[];
   createdAt: string;
@@ -185,6 +186,7 @@ export interface DeliberationSession {
   question: string;
   context: string;
   settings: DeliberationSettings;
+  aliasMap?: Record<string, string>;
   messages: DeliberationMessage[];
   phase: DeliberationPhase;
   currentTurn: number;

@@ -5,6 +5,10 @@ function renderContext(context: string): string {
   return context.trim() ? context.trim() : "No extra context provided.";
 }
 
+function getAlias(session: DeliberationSession, modelId: string): string {
+  return session.aliasMap?.[modelId] ?? getModelById(modelId)?.name ?? modelId;
+}
+
 function renderTranscript(session: DeliberationSession): string {
   if (session.messages.length === 0) {
     return "No messages yet.";
@@ -30,12 +34,11 @@ export function buildDeliberationTurnPrompt(
   modelId: string,
   archetypeSnippet?: string
 ): { system: string; user: string } {
-  const model = getModelById(modelId);
-  const modelName = model?.name ?? modelId;
+  const alias = getAlias(session, modelId);
 
   const baseSystem = [
     "You are a participant in a live group deliberation — think of it as an expert roundtable discussion.",
-    `Your identity is ${modelName}.`,
+    `Your identity is ${alias}.`,
     "Respond conversationally, like you're talking to peers in a real discussion — not writing an essay.",
     "Think deeply but keep your responses concise. A few focused paragraphs at most, unless the topic truly demands more.",
     "No rigid structure or headers — just speak naturally. Build on what others have said, agree, disagree, refine, or introduce new angles.",
@@ -53,7 +56,7 @@ export function buildDeliberationTurnPrompt(
     `Question:\n${session.question.trim()}`,
     `Context:\n${renderContext(session.context)}`,
     `Conversation so far:\n${transcript}`,
-    `Now respond as ${modelName}.`
+    `Now respond as ${alias}.`
   ].join("\n\n");
 
   return { system, user };
@@ -97,12 +100,11 @@ export function buildVotePrompt(
   solutions: JudgeSolution[],
   archetypeSnippet?: string
 ): { system: string; user: string } {
-  const model = getModelById(modelId);
-  const modelName = model?.name ?? modelId;
+  const alias = getAlias(session, modelId);
 
   const baseSystem = [
     "You are a participant voting on the best solution.",
-    `Your identity is ${modelName}.`,
+    `Your identity is ${alias}.`,
     "Pick exactly ONE solution from the list below and explain your reasoning.",
     'Respond with valid JSON only: {"choice": "A", "reasoning": "Your explanation here"}',
     "Do not include any text outside the JSON object."

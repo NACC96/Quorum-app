@@ -17,6 +17,7 @@ import { DeliberationSettings, ReasoningEffort } from "@/lib/types";
 import { getAllArchetypes } from "@/lib/archetypes";
 import { useDeliberationContext } from "@/lib/deliberation-context";
 import { createDeliberationSession } from "@/lib/deliberation-engine";
+import { generateCouncilAliases } from "@/lib/alias-generator";
 import NavPill from "@/app/components/nav-pill";
 import Footer from "@/app/components/footer";
 import ModelPickerModal from "@/app/components/model-picker-modal";
@@ -271,7 +272,9 @@ export default function DeliberationSetupClient(): React.JSX.Element {
     setPickerSlotIndex(null);
   };
 
-  const handleStartDeliberation = () => {
+  const [isStarting, setIsStarting] = useState(false);
+
+  const handleStartDeliberation = async () => {
     setErrorMessage("");
 
     if (!isPromptStepValid) {
@@ -301,6 +304,8 @@ export default function DeliberationSetupClient(): React.JSX.Element {
       return;
     }
 
+    setIsStarting(true);
+
     const reasoningEffortMap: Record<string, ReasoningEffort> = {};
     for (let index = 0; index < selectedModelIds.length; index += 1) {
       reasoningEffortMap[selectedModelIds[index]] =
@@ -325,10 +330,13 @@ export default function DeliberationSetupClient(): React.JSX.Element {
       judgeReasoningEffort: draft.judgeReasoningEffort
     };
 
+    const aliasMap = await generateCouncilAliases(selectedModelIds);
+
     const session = createDeliberationSession(
       draft.question.trim(),
       draft.context.trim(),
-      settings
+      settings,
+      aliasMap
     );
 
     addDeliberation(session);
@@ -702,9 +710,9 @@ export default function DeliberationSetupClient(): React.JSX.Element {
                 type="button"
                 className={styles.primaryAction}
                 onClick={handleStartDeliberation}
-                disabled={!canRun}
+                disabled={!canRun || isStarting}
               >
-                Start Deliberation
+                {isStarting ? "Generating aliases..." : "Start Deliberation"}
               </button>
             ) : (
               <button type="button" className={styles.primaryAction} onClick={handleNextStep}>
