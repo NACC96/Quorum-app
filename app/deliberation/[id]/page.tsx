@@ -46,9 +46,11 @@ export default function DeliberationChatPage(): React.JSX.Element {
 
   const contextSession = getDeliberation(id);
 
-  if (contextSession) {
-    sessionWasPresent.current = true;
-  }
+  useEffect(() => {
+    if (contextSession) {
+      sessionWasPresent.current = true;
+    }
+  }, [contextSession]);
 
   useEffect(() => {
     if (!contextSession && sessionWasPresent.current) {
@@ -271,13 +273,6 @@ export default function DeliberationChatPage(): React.JSX.Element {
   const handleStartVoting = () => {
     if (!session) return;
     runVoting(session);
-  };
-
-  const handleDeleteSession = (sessionId: string) => {
-    removeDeliberation(sessionId);
-    if (sessionId === id) {
-      router.push("/deliberation");
-    }
   };
 
   // ---- Computed values ----

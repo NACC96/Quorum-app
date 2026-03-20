@@ -40,9 +40,11 @@ export default function SessionPage(): React.JSX.Element {
 
   const session = getSession(id);
 
-  if (session) {
-    sessionWasPresent.current = true;
-  }
+  useEffect(() => {
+    if (session) {
+      sessionWasPresent.current = true;
+    }
+  }, [session]);
 
   useEffect(() => {
     if (!session && sessionWasPresent.current) {
@@ -175,14 +177,6 @@ export default function SessionPage(): React.JSX.Element {
     const didAbort = abortInFlightModelRequest(session.id, activeRound.id, modelId);
     if (!didAbort) {
       setErrorMessage("This model request is no longer active.");
-    }
-  };
-
-  const handleDeleteSession = (sessionId: string) => {
-    removeSession(sessionId);
-
-    if (sessionId === id) {
-      router.push("/council");
     }
   };
 
