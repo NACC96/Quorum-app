@@ -138,18 +138,30 @@ export default function DeliberationChatPage(): React.JSX.Element {
         });
       },
       onBatchComplete: (completed) => {
-        persistSession(completed);
+        // Skip persist here if aborted — cleanup persist happens below
+        if (!controller.signal.aborted) {
+          persistSession(completed);
+        }
       },
     };
+
+    const batchStartMessageCount = currentSession.messages.length;
 
     try {
       const result = await executeDeliberationBatch(working, callbacks, controller.signal);
       if (controller.signal.aborted) {
+        // Only filter abort errors from the current batch, not older messages
+        const priorMessages = result.messages.slice(0, batchStartMessageCount);
+        const batchMessages = result.messages.slice(batchStartMessageCount);
+        const keptBatchMessages = batchMessages.filter(
+          (m) => m.status !== "error" || !m.error?.toLowerCase().includes("abort")
+        );
+        const removedCount = batchMessages.length - keptBatchMessages.length;
         const cleaned = {
           ...result,
-          messages: result.messages.filter(
-            (m) => m.status !== "error" || !m.error?.toLowerCase().includes("abort")
-          ),
+          // Roll back currentTurn so the interrupted speaker isn't skipped
+          currentTurn: Math.max(currentSession.currentTurn, result.currentTurn - removedCount),
+          messages: [...priorMessages, ...keptBatchMessages],
         };
         setSession(cleaned);
         persistSession(cleaned);
