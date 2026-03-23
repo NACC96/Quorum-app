@@ -191,6 +191,7 @@ export interface DeliberationSession {
   messages: DeliberationMessage[];
   phase: DeliberationPhase;
   currentTurn: number;
+  batchStartTurn: number;
   totalTurnsInBatch: number;
   judgeSolutions?: JudgeSolution[];
   judgeRawResponse?: string;

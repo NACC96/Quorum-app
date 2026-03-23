@@ -101,6 +101,7 @@ export default function DeliberationChatPage(): React.JSX.Element {
     let working = {
       ...currentSession,
       totalTurnsInBatch: nextBatchSize ?? currentSession.settings.turnsPerBatch,
+      batchStartTurn: currentSession.currentTurn,
       phase: "deliberating" as const,
     };
     setSession(working);
@@ -137,13 +138,36 @@ export default function DeliberationChatPage(): React.JSX.Element {
         });
       },
       onBatchComplete: (completed) => {
-        persistSession(completed);
+        // Skip persist here if aborted — cleanup persist happens below
+        if (!controller.signal.aborted) {
+          persistSession(completed);
+        }
       },
     };
 
+    const batchStartMessageCount = currentSession.messages.length;
+
     try {
       const result = await executeDeliberationBatch(working, callbacks, controller.signal);
-      persistSession(result);
+      if (controller.signal.aborted) {
+        // Only filter abort errors from the current batch, not older messages
+        const priorMessages = result.messages.slice(0, batchStartMessageCount);
+        const batchMessages = result.messages.slice(batchStartMessageCount);
+        const keptBatchMessages = batchMessages.filter(
+          (m) => m.status !== "error" || !m.error?.toLowerCase().includes("abort")
+        );
+        const removedCount = batchMessages.length - keptBatchMessages.length;
+        const cleaned = {
+          ...result,
+          // Roll back currentTurn so the interrupted speaker isn't skipped
+          currentTurn: Math.max(currentSession.currentTurn, result.currentTurn - removedCount),
+          messages: [...priorMessages, ...keptBatchMessages],
+        };
+        setSession(cleaned);
+        persistSession(cleaned);
+      } else {
+        persistSession(result);
+      }
     } catch {
       // aborted or errored — keep current state
     } finally {
@@ -232,6 +256,10 @@ export default function DeliberationChatPage(): React.JSX.Element {
   };
 
   // ---- User actions ----
+
+  const handleInterrupt = () => {
+    abortRef.current?.abort();
+  };
 
   const handleSendAndContinue = () => {
     if (!session) return;
@@ -513,9 +541,13 @@ export default function DeliberationChatPage(): React.JSX.Element {
           <div className={styles.phaseIndicator}>
             <div className={styles.phaseSpinner} aria-hidden />
             <span>
-              Turn {session.currentTurn + 1} of {session.totalTurnsInBatch}
+              Turn {session.currentTurn - (session.batchStartTurn ?? 0) + 1} of {session.totalTurnsInBatch}
+              {session.batchStartTurn ? ` (${session.currentTurn + 1} total)` : ""}
               {activeModel?.modelName ? ` — ${activeModel.modelName} is thinking...` : " — Processing..."}
             </span>
+            <button type="button" className={styles.btnInterrupt} onClick={handleInterrupt}>
+              Interrupt
+            </button>
           </div>
         </div>
       );
@@ -545,7 +577,7 @@ export default function DeliberationChatPage(): React.JSX.Element {
                   }
                   aria-label="Turns for next batch"
                 />
-                <div className={styles.batchLabel}>Turns</div>
+                <div className={styles.batchLabel}>More turns</div>
               </div>
             </div>
 

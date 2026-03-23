@@ -209,6 +209,7 @@ export function createDeliberationSession(
     messages: [],
     phase: "deliberating",
     currentTurn: 0,
+    batchStartTurn: 0,
     totalTurnsInBatch: settings.turnsPerBatch,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
