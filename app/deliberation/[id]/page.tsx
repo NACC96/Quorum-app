@@ -457,6 +457,9 @@ export default function DeliberationChatPage(): React.JSX.Element {
             aria-hidden
           />
           <span className={styles.messageName} title={getRealModelName(msg.modelId)}>{msg.modelName ?? "Model"}</span>
+          {getRealModelName(msg.modelId) && (
+            <small className={styles.messageModelId}>{getRealModelName(msg.modelId)}</small>
+          )}
         </div>
         <div className={styles.messageContent}>
           <ReactMarkdown
