@@ -244,6 +244,31 @@
   min-width: 0;
 }
 
+.aliasRow {
+  width: 100%;
+}
+
+.aliasSelect {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 6px 9px;
+  width: 100%;
+  letter-spacing: 0.04em;
+}
+
+.aliasInput {
+  width: 100%;
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: 14px;
+  background: rgba(139, 92, 246, 0.08);
+  color: #fff;
+  padding: 6px 9px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+
 .judgeRow {
   display: grid;
   grid-template-columns: 1fr auto;

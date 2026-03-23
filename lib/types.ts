@@ -105,6 +105,7 @@ export interface DraftState {
   councilSlots: (string | null)[];
   councilReasoningEfforts: Record<number, ReasoningEffort>;
   councilArchetypeMap: Record<number, string | null>;
+  councilAliasMap: Record<number, string>;
   judgeModelId: string;
   judgeReasoningEffort: ReasoningEffort;
   judgeArchetypeId: string | null;

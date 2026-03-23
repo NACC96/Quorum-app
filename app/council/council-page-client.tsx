@@ -19,7 +19,7 @@ import { DraftState, ReasoningEffort } from "@/lib/types";
 import { getAllArchetypes, Archetype } from "@/lib/archetypes";
 import { useSessionsContext } from "@/lib/sessions-context";
 import { createId } from "@/lib/council-engine";
-import { generateCouncilAliases } from "@/lib/alias-generator";
+import { PRESET_ALIASES, CUSTOM_ALIAS_SENTINEL, buildAliasMap } from "@/lib/alias-generator";
 import { getEstimatedModelCallCount, getExpectedRoundCount } from "@/lib/format";
 import NavPill from "@/app/components/nav-pill";
 import Footer from "@/app/components/footer";
@@ -62,6 +62,7 @@ const INITIAL_DRAFT: DraftState = {
   councilSlots: DEFAULT_COUNCIL.map((id) => id),
   councilReasoningEfforts: {},
   councilArchetypeMap: {},
+  councilAliasMap: Object.fromEntries(DEFAULT_COUNCIL.map((_, i) => [i, PRESET_ALIASES[i]])),
   judgeModelId: DEFAULT_JUDGE,
   judgeReasoningEffort: DEFAULT_REASONING_EFFORT,
   judgeArchetypeId: null,
@@ -111,6 +112,20 @@ export default function CouncilPageClient(): React.JSX.Element {
       }
     }
 
+    const aliasEntries: Record<number, string> = {};
+    if (source.aliasMap) {
+      modelIds.forEach((modelId, index) => {
+        const alias = source.aliasMap?.[modelId];
+        if (alias) {
+          aliasEntries[index] = alias;
+        }
+      });
+    } else {
+      modelIds.forEach((_, index) => {
+        aliasEntries[index] = PRESET_ALIASES[index % PRESET_ALIASES.length];
+      });
+    }
+
     return {
       question: source.question,
       context: source.context,
@@ -118,6 +133,7 @@ export default function CouncilPageClient(): React.JSX.Element {
       councilSlots: [...modelIds],
       councilReasoningEfforts: effortMap,
       councilArchetypeMap: archetypeMap,
+      councilAliasMap: aliasEntries,
       judgeModelId: source.settings.judgeModelId,
       judgeReasoningEffort: source.settings.judgeReasoningEffort ?? DEFAULT_REASONING_EFFORT,
       judgeArchetypeId: source.settings.judgeArchetypeId ?? null,
@@ -256,10 +272,15 @@ export default function CouncilPageClient(): React.JSX.Element {
         return previous;
       }
 
+      const newIndex = previous.councilSize;
       return {
         ...previous,
         councilSize: previous.councilSize + 1,
-        councilSlots: [...previous.councilSlots, null]
+        councilSlots: [...previous.councilSlots, null],
+        councilAliasMap: {
+          ...previous.councilAliasMap,
+          [newIndex]: PRESET_ALIASES[newIndex % PRESET_ALIASES.length]
+        }
       };
     });
   };
@@ -280,12 +301,17 @@ export default function CouncilPageClient(): React.JSX.Element {
         Object.entries(previous.councilArchetypeMap).filter(([key]) => Number(key) < nextSize)
       ) as Record<number, string | null>;
 
+      const nextAliases = Object.fromEntries(
+        Object.entries(previous.councilAliasMap).filter(([key]) => Number(key) < nextSize)
+      ) as Record<number, string>;
+
       return {
         ...previous,
         councilSize: nextSize,
         councilSlots: nextSlots,
         councilReasoningEfforts: nextEfforts,
-        councilArchetypeMap: nextArchetypes
+        councilArchetypeMap: nextArchetypes,
+        councilAliasMap: nextAliases
       };
     });
 
@@ -308,9 +334,10 @@ export default function CouncilPageClient(): React.JSX.Element {
     setPickerSlotIndex(null);
   };
 
+  const [customAliasSlots, setCustomAliasSlots] = useState<Set<number>>(new Set());
   const [isStarting, setIsStarting] = useState(false);
 
-  const handleConvene = async () => {
+  const handleConvene = () => {
     setErrorMessage("");
 
     if (!isPromptStepValid) {
@@ -364,7 +391,7 @@ export default function CouncilPageClient(): React.JSX.Element {
       }
     }
 
-    const aliasMap = await generateCouncilAliases(selectedModelIds);
+    const aliasMap = buildAliasMap(selectedModelIds, draft.councilAliasMap);
 
     addSession({
       id: sessionId,
@@ -564,6 +591,66 @@ export default function CouncilPageClient(): React.JSX.Element {
                                 </option>
                               ))}
                             </select>
+
+                            <div className={styles.aliasRow}>
+                              {customAliasSlots.has(index) ? (
+                                <input
+                                  type="text"
+                                  className={styles.aliasInput}
+                                  value={draft.councilAliasMap[index] ?? ""}
+                                  onChange={(event) => {
+                                    const value = event.target.value;
+                                    setDraft((previous) => ({
+                                      ...previous,
+                                      councilAliasMap: {
+                                        ...previous.councilAliasMap,
+                                        [index]: value
+                                      }
+                                    }));
+                                  }}
+                                  placeholder="Custom name..."
+                                  aria-label={`Custom alias for ${model.name}`}
+                                />
+                              ) : (
+                                <select
+                                  className={styles.aliasSelect}
+                                  value={
+                                    PRESET_ALIASES.includes(draft.councilAliasMap[index] ?? "")
+                                      ? draft.councilAliasMap[index]
+                                      : CUSTOM_ALIAS_SENTINEL
+                                  }
+                                  onChange={(event) => {
+                                    const value = event.target.value;
+                                    if (value === CUSTOM_ALIAS_SENTINEL) {
+                                      setCustomAliasSlots((previous) => new Set(previous).add(index));
+                                      setDraft((previous) => ({
+                                        ...previous,
+                                        councilAliasMap: {
+                                          ...previous.councilAliasMap,
+                                          [index]: ""
+                                        }
+                                      }));
+                                    } else {
+                                      setDraft((previous) => ({
+                                        ...previous,
+                                        councilAliasMap: {
+                                          ...previous.councilAliasMap,
+                                          [index]: value
+                                        }
+                                      }));
+                                    }
+                                  }}
+                                  aria-label={`Alias for ${model.name}`}
+                                >
+                                  {PRESET_ALIASES.map((alias) => (
+                                    <option key={alias} value={alias}>
+                                      {alias}
+                                    </option>
+                                  ))}
+                                  <option value={CUSTOM_ALIAS_SENTINEL}>Custom...</option>
+                                </select>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -774,10 +861,11 @@ export default function CouncilPageClient(): React.JSX.Element {
                           const slotArchetype = councilArchetypes.find(
                             (a) => a.id === draft.councilArchetypeMap[index]
                           );
+                          const alias = draft.councilAliasMap[index];
                           return (
                             <li key={index}>
                               <span>
-                                Slot {index + 1}: <strong>{model?.name ?? "Unassigned"}</strong>
+                                {alias || `Slot ${index + 1}`}: <strong>{model?.name ?? "Unassigned"}</strong>
                                 {slotArchetype && (
                                   <> — {slotArchetype.icon} {slotArchetype.name}</>
                                 )}
@@ -853,7 +941,7 @@ export default function CouncilPageClient(): React.JSX.Element {
                   onClick={handleConvene}
                   disabled={!canRun || isStarting}
                 >
-                  {isStarting ? "Generating aliases..." : "Convene Council"}
+                  {isStarting ? "Starting..." : "Convene Council"}
                 </button>
               ) : (
                 <button type="button" className={styles.primaryAction} onClick={handleNextStep}>
