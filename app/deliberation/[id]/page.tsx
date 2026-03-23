@@ -69,11 +69,6 @@ export default function DeliberationChatPage(): React.JSX.Element {
     }
   }, [id, getDeliberation, nextBatchSize]);
 
-  // Auto-scroll to bottom
-  useEffect(() => {
-    messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [session?.messages.length, session?.messages[session.messages.length - 1]?.content]);
-
   // Persist session changes to context
   const persistSession = useCallback(
     (updated: DeliberationSession) => {
