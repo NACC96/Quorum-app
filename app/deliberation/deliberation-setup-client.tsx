@@ -17,7 +17,8 @@ import { DeliberationSettings, ReasoningEffort } from "@/lib/types";
 import { getAllArchetypes } from "@/lib/archetypes";
 import { useDeliberationContext } from "@/lib/deliberation-context";
 import { createDeliberationSession } from "@/lib/deliberation-engine";
-import { PRESET_ALIASES, CUSTOM_ALIAS_SENTINEL, buildAliasMap } from "@/lib/alias-generator";
+import { PRESET_ALIASES, buildAliasMap, findDuplicateAlias } from "@/lib/alias-generator";
+import AliasSelector from "@/app/components/alias-selector";
 import NavPill from "@/app/components/nav-pill";
 import Footer from "@/app/components/footer";
 import ModelPickerModal from "@/app/components/model-picker-modal";
@@ -153,12 +154,22 @@ export default function DeliberationSetupClient(): React.JSX.Element {
   const [completedSteps, setCompletedSteps] = useState<SetupStepId[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [pickerSlotIndex, setPickerSlotIndex] = useState<number | null>(null);
+  const [customAliasSlots, setCustomAliasSlots] = useState<Set<number>>(new Set());
+  const [isStarting, setIsStarting] = useState(false);
 
   useEffect(() => {
     setDraft(initialDraft);
     setCurrentStep("prompt");
     setCompletedSteps([]);
     setErrorMessage("");
+
+    const restoredCustomSlots = new Set<number>();
+    Object.entries(initialDraft.councilAliasMap).forEach(([key, alias]) => {
+      if (alias && !PRESET_ALIASES.includes(alias)) {
+        restoredCustomSlots.add(Number(key));
+      }
+    });
+    setCustomAliasSlots(restoredCustomSlots);
   }, [initialDraft]);
 
   const currentStepIndex = getStepIndex(currentStep);
@@ -288,6 +299,12 @@ export default function DeliberationSetupClient(): React.JSX.Element {
       if (previous === null) return null;
       return previous >= draft.councilSize - 1 ? null : previous;
     });
+
+    setCustomAliasSlots((previous) => {
+      const next = new Set(previous);
+      next.delete(draft.councilSize - 1);
+      return next;
+    });
   };
 
   const assignModelToSlot = (index: number, modelId: string) => {
@@ -298,9 +315,6 @@ export default function DeliberationSetupClient(): React.JSX.Element {
     });
     setPickerSlotIndex(null);
   };
-
-  const [customAliasSlots, setCustomAliasSlots] = useState<Set<number>>(new Set());
-  const [isStarting, setIsStarting] = useState(false);
 
   const handleStartDeliberation = () => {
     setErrorMessage("");
@@ -329,6 +343,13 @@ export default function DeliberationSetupClient(): React.JSX.Element {
     if (!judge) {
       goToStep("judge");
       setErrorMessage("Judge model is invalid.");
+      return;
+    }
+
+    const duplicateAlias = findDuplicateAlias(draft.councilAliasMap);
+    if (duplicateAlias) {
+      goToStep("council");
+      setErrorMessage(`Duplicate alias "${duplicateAlias}" — each council member needs a unique name.`);
       return;
     }
 
@@ -546,65 +567,31 @@ export default function DeliberationSetupClient(): React.JSX.Element {
                             ))}
                           </select>
 
-                          <div className={styles.aliasRow}>
-                            {customAliasSlots.has(index) ? (
-                              <input
-                                type="text"
-                                className={styles.aliasInput}
-                                value={draft.councilAliasMap[index] ?? ""}
-                                onChange={(event) => {
-                                  const value = event.target.value;
-                                  setDraft((previous) => ({
-                                    ...previous,
-                                    councilAliasMap: {
-                                      ...previous.councilAliasMap,
-                                      [index]: value
-                                    }
-                                  }));
-                                }}
-                                placeholder="Custom name..."
-                                aria-label={`Custom alias for ${model.name}`}
-                              />
-                            ) : (
-                              <select
-                                className={styles.aliasSelect}
-                                value={
-                                  PRESET_ALIASES.includes(draft.councilAliasMap[index] ?? "")
-                                    ? draft.councilAliasMap[index]
-                                    : CUSTOM_ALIAS_SENTINEL
+                          <AliasSelector
+                            index={index}
+                            value={draft.councilAliasMap[index] ?? ""}
+                            isCustom={customAliasSlots.has(index)}
+                            modelName={model.name}
+                            onAliasChange={(i, alias) => {
+                              setDraft((previous) => ({
+                                ...previous,
+                                councilAliasMap: {
+                                  ...previous.councilAliasMap,
+                                  [i]: alias
                                 }
-                                onChange={(event) => {
-                                  const value = event.target.value;
-                                  if (value === CUSTOM_ALIAS_SENTINEL) {
-                                    setCustomAliasSlots((previous) => new Set(previous).add(index));
-                                    setDraft((previous) => ({
-                                      ...previous,
-                                      councilAliasMap: {
-                                        ...previous.councilAliasMap,
-                                        [index]: ""
-                                      }
-                                    }));
-                                  } else {
-                                    setDraft((previous) => ({
-                                      ...previous,
-                                      councilAliasMap: {
-                                        ...previous.councilAliasMap,
-                                        [index]: value
-                                      }
-                                    }));
-                                  }
-                                }}
-                                aria-label={`Alias for ${model.name}`}
-                              >
-                                {PRESET_ALIASES.map((alias) => (
-                                  <option key={alias} value={alias}>
-                                    {alias}
-                                  </option>
-                                ))}
-                                <option value={CUSTOM_ALIAS_SENTINEL}>Custom...</option>
-                              </select>
-                            )}
-                          </div>
+                              }));
+                            }}
+                            onSwitchToCustom={(i) => {
+                              setCustomAliasSlots((previous) => new Set(previous).add(i));
+                              setDraft((previous) => ({
+                                ...previous,
+                                councilAliasMap: {
+                                  ...previous.councilAliasMap,
+                                  [i]: ""
+                                }
+                              }));
+                            }}
+                          />
                         </div>
                       )}
                     </div>

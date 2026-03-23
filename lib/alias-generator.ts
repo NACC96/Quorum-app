@@ -17,6 +17,21 @@ export const PRESET_ALIASES = [
 export const CUSTOM_ALIAS_SENTINEL = "__custom__";
 
 /**
+ * Check whether the alias map contains duplicate names.
+ * Returns the first duplicate found, or null if all are unique.
+ */
+export function findDuplicateAlias(aliasMap: Record<number, string>): string | null {
+  const seen = new Set<string>();
+  for (const alias of Object.values(aliasMap)) {
+    const normalized = alias.trim().toLowerCase();
+    if (!normalized) continue;
+    if (seen.has(normalized)) return alias;
+    seen.add(normalized);
+  }
+  return null;
+}
+
+/**
  * Convert a slot-index-based alias map into the modelId-based
  * alias map that the rest of the system expects.
  */
@@ -26,7 +41,7 @@ export function buildAliasMap(
 ): Record<string, string> {
   const map: Record<string, string> = {};
   for (let i = 0; i < modelIds.length; i++) {
-    map[modelIds[i]] = slotAliases[i] ?? PRESET_ALIASES[i % PRESET_ALIASES.length];
+    map[modelIds[i]] = slotAliases[i] || PRESET_ALIASES[i % PRESET_ALIASES.length];
   }
   return map;
 }
